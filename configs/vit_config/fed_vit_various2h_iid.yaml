@@ -1,0 +1,78 @@
+# config name
+exp_name: "fed_vit_various2h_iid"
+log_dir: "./logs"
+
+#training settings
+seed: 1
+async_training: False
+num_clients: 5
+batch_size: 512
+epochs: 400
+local_ep: 1
+device: cuda:1
+aggregation: True
+small_model_training: False
+small_model_training_round: 20
+# dataset settings
+dataset: CIFAR100
+data_root: ./datasets
+iid_degree: 1000
+
+# loss function 
+criterion: "CrossEntropyLoss"
+criterion_kwargs:
+
+# optimizer settings
+optimizer: AdamW
+optimizer_kwargs:
+  lr: 0.0001
+  weight_decay: 0.05
+
+# model settings
+# Vit Tiny dict(patch_size=16, embed_dim=128, depth=8, num_heads=8)
+# Vit Smal dict(patch_size=16, embed_dim=192, depth=10, num_heads=8)
+# Vit Base dict(patch_size=16, embed_dim=256, depth=12, num_heads=8)
+model: "LiGOViT"
+various_model: True
+model_kwargs:
+  tiny:
+    patch_size: 16
+    n_hiddens: 64
+    n_layers: 5
+    num_heads: 8
+    target_hiddens: 160
+    target_layers: 8
+    target_heads: 8
+    num_classes: 100
+    small_model_path: pretrained_models/myvit_tiny_patch16_224/best_checkpoint.pth
+  small:
+    patch_size: 16
+    n_hiddens: 96
+    n_layers: 6
+    num_heads: 8
+    target_hiddens: 160
+    target_layers: 8
+    target_heads: 8
+    num_classes: 100
+    small_model_path: pretrained_models/myvit_small_patch16_224/best_checkpoint.pth
+  large:
+    patch_size: 16
+    n_hiddens: 128
+    n_layers: 7
+    num_heads: 8
+    target_hiddens: 160
+    target_layers: 8
+    target_heads: 8
+    num_classes: 100
+    small_model_path: pretrained_models/myvit_base_patch16_224/best_checkpoint.pth
+
+homogeneous_model_kwargs:
+    patch_size: 16
+    n_hiddens: 160
+    n_layers: 8
+    num_heads: 8
+    target_hiddens: 192
+    target_layers: 8
+    target_heads: 8
+    num_classes: 100
+    small_model_path:
