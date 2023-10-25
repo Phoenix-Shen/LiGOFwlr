@@ -28,7 +28,7 @@ class LiGOClient(fl.client.NumPyClient):
         trainset: torchvision.datasets,
         testset: torchvision.datasets,
         device: str,
-        args: dict,
+        args: dict = None,
     ):
         self.device = device
         self.trainset = trainset
@@ -37,14 +37,57 @@ class LiGOClient(fl.client.NumPyClient):
 
     def set_parameters(self, parameters: NDArrays, config: dict):
         """Loads a efficientnet model and replaces it parameters with the ones given."""
-        model = construct_model(config["model"], config["model_kwargs"])
-        params_dict = zip(model.state_dict().keys(), parameters)
-        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        model.load_state_dict(state_dict, strict=True)
+        model = construct_model(config["model"], config["homogeneous_model_kwargs"])
+        if parameters is not None:
+            params_dict = zip(model.state_dict().keys(), parameters)
+            state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+            model.load_state_dict(state_dict, strict=True)
         return model
+
+    def train_small_model(self, config):
+        # define the small model kwargs
+        config = deepcopy(config)
+        wo_config = deepcopy(config)
+        del wo_config["model_kwargs"]["target_hiddens"]
+        del wo_config["model_kwargs"]["target_layers"]
+        wo_model = construct_model(config["model"], wo_config["model_kwargs"])
+        # Get hyperparameters for this round
+        batch_size: int = config["batch_size"]
+        epochs: int = config["small_model_training_round"]
+
+        # Construct Data Loader for training
+        trainLoader = DataLoader(
+            self.trainset,
+            batch_size=batch_size,
+            shuffle=True,
+            pin_memory=True,
+            drop_last=False,
+        )
+        config["optimizer_kwargs"]["params"] = wo_model.parameters()
+        criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
+        optimizer = construct_optimizer(config["optimizer"], config["optimizer_kwargs"])
+        results = train(
+            wo_model, criterion, trainLoader, optimizer, epochs, self.device
+        )
+
+        # Begin train the ligo operator
+        model = construct_model(config["model"], config["model_kwargs"])
+        model.load_state_dict(wo_model.state_dict(), strict=False)
+        config["optimizer_kwargs"]["params"] = model.parameters()
+        criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
+        optimizer = construct_optimizer(config["optimizer"], config["optimizer_kwargs"])
+        results = train(model, criterion, trainLoader, optimizer, epochs, self.device)
+
+        num_examples_train = len(self.trainset)
+        parameters_prime = get_model_params(model, mode=1)
+        return parameters_prime, num_examples_train, results
 
     def fit(self, parameters: NDArrays, config: dict):
         """Train parameters on the locally held training set."""
+        config = deepcopy(config)
+
+        if config["small_model_training"]:
+            return self.train_small_model(config)
 
         # Update local model parameters
         model = self.set_parameters(parameters, config)
@@ -52,6 +95,7 @@ class LiGOClient(fl.client.NumPyClient):
         # Get hyperparameters for this round
         batch_size: int = config["batch_size"]
         epochs: int = config["local_ep"]
+
         # Construct Data Loader for training
         trainLoader = DataLoader(
             self.trainset,
@@ -93,8 +137,9 @@ class LiGOClient(fl.client.NumPyClient):
 def client_dry_run(args: dict, device: str = "cpu"):
     """Weak tests to check whether all client methods are working as expected."""
     args = deepcopy(args)
+    args["small_model_training"] = False
     args["model_kwargs"] = args["model_kwargs"]["tiny"]
-    model = construct_model(args["model"], args["model_kwargs"])
+    model = construct_model(args["model"], args["homogeneous_model_kwargs"])
     trainset, testset = construct_dataset(
         args["dataset"], args["data_root"], args["num_clients"], args["iid_degree"], 0
     )
@@ -102,12 +147,12 @@ def client_dry_run(args: dict, device: str = "cpu"):
     testset = torch.utils.data.Subset(testset, range(10))
     client = LiGOClient(trainset, testset, device, args=None)
     client.fit(
-        get_model_params(model),
+        None,
         args,
     )
 
     client.evaluate(get_model_params(model), args)
-
+    client.train_small_model(args)
     print("Dry Run Successful")
 
 

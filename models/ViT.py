@@ -428,17 +428,20 @@ class LiGOViT(nn.Module):
                 param.grad.zero_()
 
     def backward_param(self):
-        for name, param in self.large_model.named_parameters():
-            if name != "pos_embed":
-                if "blocks" in name:
-                    out_layer_key = ".".join(name.split(".")[:2])
-                    inner_layer_key = ".".join(name.split(".")[2:])
-                    self.full_dict[out_layer_key][inner_layer_key].backward(
-                        param.grad, retain_graph=True
-                    )
-                else:
-                    if name != "head.bias":
-                        self.full_dict[name].backward(param.grad, retain_graph=True)
+        if hasattr(self, "large_model"):
+            for name, param in self.large_model.named_parameters():
+                if name != "pos_embed":
+                    if "blocks" in name:
+                        out_layer_key = ".".join(name.split(".")[:2])
+                        inner_layer_key = ".".join(name.split(".")[2:])
+                        self.full_dict[out_layer_key][inner_layer_key].backward(
+                            param.grad, retain_graph=True
+                        )
+                    else:
+                        if name != "head.bias":
+                            self.full_dict[name].backward(param.grad, retain_graph=True)
+        else:
+            pass
 
     def save_large_model(self, model_path: str):
         self.large_model._save_to_state_dict(model_path)

@@ -5,14 +5,14 @@ log_dir: "./logs"
 #training settings
 seed: 1
 async_training: False
-num_clients: 10
-batch_size: 256
+num_clients: 5
+batch_size: 64
 epochs: 500
-local_ep: 10
-device: cuda:1
+local_ep: 1
+device: cuda:0
 aggregation: False
 small_model_training: True
-small_model_training_round: 50
+small_model_training_round: 1
 # dataset settings
 dataset: CIFAR100
 data_root: ./datasets

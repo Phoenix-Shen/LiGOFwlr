@@ -18,23 +18,23 @@ from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 import torch
 import torch.nn as nn
+import yaml
+from utils import gen_hetro_model_args, set_seed, get_model_params
+import numpy as np
+from copy import deepcopy
 
 
-class FedCustom(fl.server.strategy.Strategy):
-    def __init__(
-        self,
-        fraction_fit: float = 1.0,
-        fraction_evaluate: float = 1.0,
-        min_fit_clients: int = 2,
-        min_evaluate_clients: int = 2,
-        min_available_clients: int = 2,
-    ) -> None:
+class FedLiGO(fl.server.strategy.Strategy):
+    def __init__(self, config: dict) -> None:
         super().__init__()
-        self.fraction_fit = fraction_fit
-        self.fraction_evaluate = fraction_evaluate
-        self.min_fit_clients = min_fit_clients
-        self.min_evaluate_clients = min_evaluate_clients
-        self.min_available_clients = min_available_clients
+        self.config = config
+        # setup seed
+        set_seed(self.config["seed"])
+        # save arguments to member variables
+        self.num_clients = self.config["num_clients"]
+        self.client_configs = [
+            gen_hetro_model_args(self.config) for _ in range(self.num_clients)
+        ]
 
     def __repr__(self) -> str:
         return "FedLiGO Strategy"
@@ -43,35 +43,60 @@ class FedCustom(fl.server.strategy.Strategy):
         self, client_manager: ClientManager
     ) -> Optional[Parameters]:
         """Initialize global model parameters."""
-        net = Net()
-        ndarrays = get_parameters(net)
+        # We apply hetrogeneous parameters to all clients.
+        # So there is no need to perform unified parameter assignment.
+        ndarrays = [np.zeros(1)]
         return fl.common.ndarrays_to_parameters(ndarrays)
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
     ) -> List[Tuple[ClientProxy, FitIns]]:
-        """Configure the next round of training."""
+        """Configure the next round of training.
+
+        Parameters
+        ----------
+        server_round : int
+            The current round of federated learning.
+        parameters : Parameters
+            The current (global) model parameters.
+        client_manager : ClientManager
+            The client manager which holds all currently connected clients.
+
+        Returns
+        -------
+        fit_configuration : List[Tuple[ClientProxy, FitIns]]
+            A list of tuples. Each tuple in the list identifies a `ClientProxy` and the
+            `FitIns` for this particular `ClientProxy`. If a particular `ClientProxy`
+            is not included in this list, it means that this `ClientProxy`
+            will not participate in the next round of federated learning.
+        """
 
         # Sample clients
-        sample_size, min_num_clients = self.num_fit_clients(
-            client_manager.num_available()
-        )
         clients = client_manager.sample(
-            num_clients=sample_size, min_num_clients=min_num_clients
+            num_clients=client_manager.num_available(),
+            min_num_clients=client_manager.num_available(),
         )
 
-        # Create custom configs
-        n_clients = len(clients)
-        half_clients = n_clients // 2
-        standard_config = {"lr": 0.001}
-        higher_lr_config = {"lr": 0.003}
-        fit_configurations = []
-        for idx, client in enumerate(clients):
-            if idx < half_clients:
-                fit_configurations.append((client, FitIns(parameters, standard_config)))
-            else:
+        # Create custom configs for FedLe
+
+        # 1. At first we begin small model training and ligo operator training.
+        if self.config["small_model_training"] and server_round == 1:
+            # send small model training instructions to each client.
+            fit_configurations = []
+            for idx, client in enumerate(clients):
                 fit_configurations.append(
-                    (client, FitIns(parameters, higher_lr_config))
+                    (client, FitIns(parameters, deepcopy(self.client_configs[idx])))
+                )
+            # modify the small model training flag to false
+            for config in self.client_configs:
+                config["small_model_training"] = False
+        # 2. After the small model trianing process,
+        # we begin to train and aggregate the ligo operators.
+        else:
+            fit_configurations = []
+            for idx, client in enumerate(clients):
+                fit_configurations.append(
+                    (client, FitIns(parameters, self.client_configs[idx]))
                 )
         return fit_configurations
 
@@ -81,7 +106,35 @@ class FedCustom(fl.server.strategy.Strategy):
         results: List[Tuple[ClientProxy, FitRes]],
         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-        """Aggregate fit results using weighted average."""
+        """Aggregate training results.
+
+        Parameters
+        ----------
+        server_round : int
+            The current round of federated learning.
+        results : List[Tuple[ClientProxy, FitRes]]
+            Successful updates from the previously selected and configured
+            clients. Each pair of `(ClientProxy, FitRes)` constitutes a
+            successful update from one of the previously selected clients. Not
+            that not all previously selected clients are necessarily included in
+            this list: a client might drop out and not submit a result. For each
+            client that did not submit an update, there should be an `Exception`
+            in `failures`.
+        failures : List[Union[Tuple[ClientProxy, FitRes], BaseException]]
+            Exceptions that occurred while the server was waiting for client
+            updates.
+
+        Returns
+        -------
+        parameters : Optional[Parameters]
+            If parameters are returned, then the server will treat these as the
+            new global model parameters (i.e., it will replace the previous
+            parameters with the ones returned from this method). If `None` is
+            returned (e.g., because there were only failures and no viable
+            results) then the server will no update the previous model
+            parameters, the updates received in this round are discarded, and
+            the global model parameters remain the same.
+        """
 
         weights_results = [
             (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
@@ -94,22 +147,37 @@ class FedCustom(fl.server.strategy.Strategy):
     def configure_evaluate(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
     ) -> List[Tuple[ClientProxy, EvaluateIns]]:
-        """Configure the next round of evaluation."""
-        if self.fraction_evaluate == 0.0:
-            return []
-        config = {}
-        evaluate_ins = EvaluateIns(parameters, config)
+        """Configure the next round of evaluation.
+
+        Parameters
+        ----------
+        server_round : int
+            The current round of federated learning.
+        parameters : Parameters
+            The current (global) model parameters.
+        client_manager : ClientManager
+            The client manager which holds all currently connected clients.
+
+        Returns
+        -------
+        evaluate_configuration : List[Tuple[ClientProxy, EvaluateIns]]
+            A list of tuples. Each tuple in the list identifies a `ClientProxy` and the
+            `EvaluateIns` for this particular `ClientProxy`. If a particular
+            `ClientProxy` is not included in this list, it means that this
+            `ClientProxy` will not participate in the next round of federated
+            evaluation.
+        """
 
         # Sample clients
-        sample_size, min_num_clients = self.num_evaluation_clients(
-            client_manager.num_available()
-        )
         clients = client_manager.sample(
-            num_clients=sample_size, min_num_clients=min_num_clients
+            num_clients=client_manager.num_available(),
+            min_num_clients=client_manager.num_available(),
         )
-
+        eval_ins = []
+        for idx, client in enumerate(clients):
+            eval_ins.append((client, EvaluateIns(parameters, self.client_configs[idx])))
         # Return client/config pairs
-        return [(client, evaluate_ins) for client in clients]
+        return eval_ins
 
     def aggregate_evaluate(
         self,
@@ -117,7 +185,29 @@ class FedCustom(fl.server.strategy.Strategy):
         results: List[Tuple[ClientProxy, EvaluateRes]],
         failures: List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]],
     ) -> Tuple[Optional[float], Dict[str, Scalar]]:
-        """Aggregate evaluation losses using weighted average."""
+        """Aggregate evaluation results.
+
+        Parameters
+        ----------
+        server_round : int
+            The current round of federated learning.
+        results : List[Tuple[ClientProxy, FitRes]]
+            Successful updates from the
+            previously selected and configured clients. Each pair of
+            `(ClientProxy, FitRes` constitutes a successful update from one of the
+            previously selected clients. Not that not all previously selected
+            clients are necessarily included in this list: a client might drop out
+            and not submit a result. For each client that did not submit an update,
+            there should be an `Exception` in `failures`.
+        failures : List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]]
+            Exceptions that occurred while the server was waiting for client updates.
+
+        Returns
+        -------
+        aggregation_result : Optional[float]
+            The aggregated evaluation result. Aggregation typically uses some variant
+            of a weighted average.
+        """
 
         if not results:
             return None, {}
@@ -134,17 +224,24 @@ class FedCustom(fl.server.strategy.Strategy):
     def evaluate(
         self, server_round: int, parameters: Parameters
     ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
-        """Evaluate global model parameters using an evaluation function."""
+        """Evaluate the current model parameters.
+
+        This function can be used to perform centralized (i.e., server-side) evaluation
+        of model parameters.
+
+        Parameters
+        ----------
+        server_round : int
+            The current round of federated learning.
+        parameters: Parameters
+            The current (global) model parameters.
+
+        Returns
+        -------
+        evaluation_result : Optional[Tuple[float, Dict[str, Scalar]]]
+            The evaluation result, usually a Tuple containing loss and a
+            dictionary containing task-specific metrics (e.g., accuracy).
+        """
 
         # Let's assume we won't perform the global model evaluation on the server side.
         return None
-
-    def num_fit_clients(self, num_available_clients: int) -> Tuple[int, int]:
-        """Return sample size and required number of clients."""
-        num_clients = int(num_available_clients * self.fraction_fit)
-        return max(num_clients, self.min_fit_clients), self.min_available_clients
-
-    def num_evaluation_clients(self, num_available_clients: int) -> Tuple[int, int]:
-        """Use a fraction of available clients for evaluation."""
-        num_clients = int(num_available_clients * self.fraction_evaluate)
-        return max(num_clients, self.min_evaluate_clients), self.min_available_clients
