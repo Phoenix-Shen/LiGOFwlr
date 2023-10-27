@@ -5,9 +5,9 @@ log_dir: "./logs"
 #training settings
 seed: 1
 async_training: False
-num_clients: 5
+num_clients: 10
 batch_size: 64
-epochs: 500
+epochs: 10
 local_ep: 1
 device: cuda:0
 aggregation: False
@@ -21,6 +21,7 @@ iid_degree: 0.5
 # loss function
 criterion: "CrossEntropyLoss"
 criterion_kwargs:
+  reduction: "mean"
 
 # optimizer settings
 optimizer: AdamW
@@ -44,7 +45,7 @@ model_kwargs:
     target_layers: 8
     target_heads: 8
     num_classes: 100
-    small_model_path: #pretrained_models/myvit_tiny_patch16_224/best_checkpoint.pth
+    #small_model_path: #pretrained_models/myvit_tiny_patch16_224/best_checkpoint.pth
   small:
     patch_size: 16
     n_hiddens: 96
@@ -54,7 +55,7 @@ model_kwargs:
     target_layers: 8
     target_heads: 8
     num_classes: 100
-    small_model_path: #pretrained_models/myvit_small_patch16_224/best_checkpoint.pth
+    #small_model_path: #pretrained_models/myvit_small_patch16_224/best_checkpoint.pth
   large:
     patch_size: 16
     n_hiddens: 128
@@ -64,7 +65,7 @@ model_kwargs:
     target_layers: 8
     target_heads: 8
     num_classes: 100
-    small_model_path: #pretrained_models/myvit_base_patch16_224/best_checkpoint.pth
+    #small_model_path: #pretrained_models/myvit_base_patch16_224/best_checkpoint.pth
 
 homogeneous_model_kwargs:
   patch_size: 16
@@ -75,4 +76,4 @@ homogeneous_model_kwargs:
   target_layers: 8
   target_heads: 8
   num_classes: 100
-  small_model_path:
+  #small_model_path:

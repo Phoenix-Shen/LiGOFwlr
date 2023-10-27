@@ -9,7 +9,9 @@ import torch.optim as optim
 import numpy as np
 from copy import deepcopy
 from flwr.common import NDArrays
+from typing import Dict, Union
 
+Scalar = Union[bool, bytes, float, int, str]
 warnings.filterwarnings("ignore")
 model_dict = {"LiGOMLP": LiGOMLP, "LiGOViT": LiGOViT}
 
@@ -65,8 +67,8 @@ def gen_hetro_model_args(args: dict) -> dict:
     n_type_models = len(args["model_kwargs"].keys())
     keys = list(args["model_kwargs"].keys())
     model_type = np.random.choice(np.arange(n_type_models))
-    args["model_kwargs"] = args["model_kwargs"][keys[model_type]]
-    return args
+
+    return int(model_type)
 
 
 def get_model_params(model: nn.Module, mode: int = 0) -> NDArrays:
@@ -98,3 +100,21 @@ def set_seed(seed: int):
     torch.manual_seed(seed)  # set the seed for Pytorch
     np.random.seed(seed)  # set the seed for numpy
     torch.backends.cudnn.benchmark = False  # disable cuDNN benchmarking
+
+
+def weighted_metrics_avg(metrics: list[tuple[Dict[str, Scalar], int]]) -> dict:
+    """Aggregate evaluation results obtained from multiple clients."""
+    num_total_evaluation_examples = sum([num_examples for _, num_examples in metrics])
+    # Initialize an empty dictionary to store the aggregated metrics
+    aggregated_metrics = {}
+    # Loop over the keys of the metrics dictionary
+    for key in metrics[0][0].keys():
+        # Calculate the weighted average of the metric values from all clients
+        weighted_sum = sum(
+            [metric[key] * num_examples for metric, num_examples in metrics]
+        )
+        weighted_avg = weighted_sum / num_total_evaluation_examples
+        # Store the weighted average value in the aggregated metrics dictionary
+        aggregated_metrics[key] = weighted_avg
+    # Return the aggregated metrics dictionary
+    return aggregated_metrics

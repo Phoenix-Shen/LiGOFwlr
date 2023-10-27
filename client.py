@@ -33,20 +33,28 @@ class LiGOClient(fl.client.NumPyClient):
         self.device = device
         self.trainset = trainset
         self.testset = testset
-        self.args = args
+        self.config = args
 
     def set_parameters(self, parameters: NDArrays, config: dict):
         """Loads a efficientnet model and replaces it parameters with the ones given."""
+        print("call on set models")
+
+        config = self.config
         model = construct_model(config["model"], config["homogeneous_model_kwargs"])
-        if parameters is not None:
+        if parameters is not None and len(parameters) != 0:
             params_dict = zip(model.state_dict().keys(), parameters)
             state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
             model.load_state_dict(state_dict, strict=True)
         return model
 
-    def train_small_model(self, config):
+    def train_small_model(self, config: dict):
+        print("1call on train small models")
         # define the small model kwargs
-        config = deepcopy(config)
+        self.config["model_kwargs"] = self.config["model_kwargs"][
+            list(self.config["model_kwargs"].keys())[config["small_model_idx"]]
+        ]
+        config = deepcopy(self.config)
+
         wo_config = deepcopy(config)
         del wo_config["model_kwargs"]["target_hiddens"]
         del wo_config["model_kwargs"]["target_layers"]
@@ -79,16 +87,24 @@ class LiGOClient(fl.client.NumPyClient):
         results = train(model, criterion, trainLoader, optimizer, epochs, self.device)
 
         num_examples_train = len(self.trainset)
-        parameters_prime = get_model_params(model, mode=1)
-        return parameters_prime, num_examples_train, results
+
+        model_homo = construct_model(
+            config["model"], config["homogeneous_model_kwargs"]
+        )
+        model_homo.load_state_dict(model.expanded_model_state_dict, strict=False)
+        parameters_prime = get_model_params(model_homo)
+        print("call on train small models")
+        return parameters_prime, num_examples_train, {"traning_loss": results}
 
     def fit(self, parameters: NDArrays, config: dict):
         """Train parameters on the locally held training set."""
-        config = deepcopy(config)
+        print("received config:", config)
+        self.config["small_model_training"] = config["small_model_training"]
 
-        if config["small_model_training"]:
+        if self.config["small_model_training"]:
+            print("enable small_model_training")
             return self.train_small_model(config)
-
+        config = deepcopy(self.config)
         # Update local model parameters
         model = self.set_parameters(parameters, config)
 
@@ -115,11 +131,12 @@ class LiGOClient(fl.client.NumPyClient):
         parameters_prime = get_model_params(model)
         # Extract the training sample number for Weighted AVG.
         num_examples_train = len(self.trainset)
-
-        return parameters_prime, num_examples_train, results
+        print("call on fit")
+        return parameters_prime, num_examples_train, {"traning_loss": results}
 
     def evaluate(self, parameters: NDArrays, config: dict):
         """Evaluate parameters on the locally held test set."""
+        config = deepcopy(self.config)
         # Update local model parameters
         model = self.set_parameters(parameters, config)
 
@@ -137,22 +154,27 @@ class LiGOClient(fl.client.NumPyClient):
 def client_dry_run(args: dict, device: str = "cpu"):
     """Weak tests to check whether all client methods are working as expected."""
     args = deepcopy(args)
-    args["small_model_training"] = False
-    args["model_kwargs"] = args["model_kwargs"]["tiny"]
     model = construct_model(args["model"], args["homogeneous_model_kwargs"])
     trainset, testset = construct_dataset(
         args["dataset"], args["data_root"], args["num_clients"], args["iid_degree"], 0
     )
     trainset = torch.utils.data.Subset(trainset, range(10))
     testset = torch.utils.data.Subset(testset, range(10))
-    client = LiGOClient(trainset, testset, device, args=None)
+    client = LiGOClient(trainset, testset, device, args=args)
     client.fit(
         None,
-        args,
+        {"small_model_idx": 0, "small_model_training": True},
     )
+    client.fit(
+        get_model_params(model),
+        {"small_model_idx": 0, "small_model_training": False},
+    )
+    client.fit(
+        get_model_params(model),
+        {"small_model_idx": 0, "small_model_training": False},
+    )
+    client.evaluate(get_model_params(model), {})
 
-    client.evaluate(get_model_params(model), args)
-    client.train_small_model(args)
     print("Dry Run Successful")
 
 
@@ -209,7 +231,7 @@ def main() -> None:
         )
 
         # Start Flower client
-        client = LiGOClient(trainset, testset, device)
+        client = LiGOClient(trainset, testset, device, fedligo_cfg)
 
         fl.client.start_numpy_client(server_address="127.0.0.1:8080", client=client)
 

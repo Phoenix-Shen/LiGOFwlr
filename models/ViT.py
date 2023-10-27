@@ -411,7 +411,11 @@ class LiGOViT(nn.Module):
     @property
     def expanded_model_state_dict(self):
         self.expand_params()
-        return self.large_model.state_dict()
+        keys = self.large_model.state_dict().keys()
+        sd = self.large_model.state_dict()
+        for key in keys:
+            sd["small_model." + key] = sd.pop(key)
+        return sd
 
     @property
     def ligo_dict(self):

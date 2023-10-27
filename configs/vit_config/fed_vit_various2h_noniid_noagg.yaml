@@ -6,9 +6,9 @@ log_dir: "./logs"
 seed: 1
 async_training: False
 num_clients: 10
-batch_size: 256
-epochs: 500
-local_ep: 10
+batch_size: 64
+epochs: 200
+local_ep: 2
 device: cuda:1
 aggregation: False
 small_model_training: True

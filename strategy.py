@@ -19,7 +19,7 @@ from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 import torch
 import torch.nn as nn
 import yaml
-from utils import gen_hetro_model_args, set_seed, get_model_params
+from utils import gen_hetro_model_args, set_seed, get_model_params, weighted_metrics_avg
 import numpy as np
 from copy import deepcopy
 
@@ -70,11 +70,11 @@ class FedLiGO(fl.server.strategy.Strategy):
             is not included in this list, it means that this `ClientProxy`
             will not participate in the next round of federated learning.
         """
-
+        client_manager.wait_for(self.num_clients)
         # Sample clients
         clients = client_manager.sample(
-            num_clients=client_manager.num_available(),
-            min_num_clients=client_manager.num_available(),
+            num_clients=self.num_clients,
+            min_num_clients=self.num_clients,
         )
 
         # Create custom configs for FedLe
@@ -85,19 +85,36 @@ class FedLiGO(fl.server.strategy.Strategy):
             fit_configurations = []
             for idx, client in enumerate(clients):
                 fit_configurations.append(
-                    (client, FitIns(parameters, deepcopy(self.client_configs[idx])))
+                    (
+                        client,
+                        FitIns(
+                            parameters,
+                            {
+                                "small_model_idx": self.client_configs[idx],
+                                "small_model_training": True,
+                            },
+                        ),
+                    )
                 )
-            # modify the small model training flag to false
-            for config in self.client_configs:
-                config["small_model_training"] = False
+
         # 2. After the small model trianing process,
         # we begin to train and aggregate the ligo operators.
         else:
             fit_configurations = []
             for idx, client in enumerate(clients):
                 fit_configurations.append(
-                    (client, FitIns(parameters, self.client_configs[idx]))
+                    (
+                        client,
+                        FitIns(
+                            parameters,
+                            {
+                                "small_model_idx": self.client_configs[idx],
+                                "small_model_training": False,
+                            },
+                        ),
+                    )
                 )
+
         return fit_configurations
 
     def aggregate_fit(
@@ -140,8 +157,9 @@ class FedLiGO(fl.server.strategy.Strategy):
             (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
             for _, fit_res in results
         ]
+        metrics = [(fit_res.metrics, fit_res.num_examples) for _, fit_res in results]
         parameters_aggregated = ndarrays_to_parameters(aggregate(weights_results))
-        metrics_aggregated = {}
+        metrics_aggregated = weighted_metrics_avg(metrics)
         return parameters_aggregated, metrics_aggregated
 
     def configure_evaluate(
@@ -175,7 +193,7 @@ class FedLiGO(fl.server.strategy.Strategy):
         )
         eval_ins = []
         for idx, client in enumerate(clients):
-            eval_ins.append((client, EvaluateIns(parameters, self.client_configs[idx])))
+            eval_ins.append((client, EvaluateIns(parameters, {})))
         # Return client/config pairs
         return eval_ins
 
@@ -218,7 +236,9 @@ class FedLiGO(fl.server.strategy.Strategy):
                 for _, evaluate_res in results
             ]
         )
-        metrics_aggregated = {}
+        metrics = [(fit_res.metrics, fit_res.num_examples) for _, fit_res in results]
+
+        metrics_aggregated = weighted_metrics_avg(metrics)
         return loss_aggregated, metrics_aggregated
 
     def evaluate(

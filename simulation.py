@@ -1,31 +1,6 @@
-from typing import Callable, Union
-from collections import OrderedDict
-from typing import Dict, List, Optional, Tuple
-
-import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, random_split
-from torchvision.datasets import CIFAR10
 from client import LiGOClient
 import flwr as fl
-from flwr.common import (
-    EvaluateIns,
-    EvaluateRes,
-    FitIns,
-    FitRes,
-    MetricsAggregationFn,
-    NDArrays,
-    Parameters,
-    Scalar,
-    ndarrays_to_parameters,
-    parameters_to_ndarrays,
-)
-from flwr.server.client_manager import ClientManager
-from flwr.server.client_proxy import ClientProxy
-from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 from data import construct_dataset
 from strategy import FedLiGO
 import argparse
