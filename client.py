@@ -18,6 +18,9 @@ from engine import train, evalulate
 from data import construct_dataset
 import yaml
 from copy import deepcopy
+from logging import DEBUG, INFO
+from flwr.common import log
+from typing import Dict
 
 warnings.filterwarnings("ignore")
 
@@ -29,16 +32,24 @@ class LiGOClient(fl.client.NumPyClient):
         testset: torchvision.datasets,
         device: str,
         args: dict = None,
+        idx: int = 0,
     ):
         self.device = device
         self.trainset = trainset
         self.testset = testset
         self.config = args
+        self.idx = idx
 
-    def set_parameters(self, parameters: NDArrays, config: dict):
-        """Loads a efficientnet model and replaces it parameters with the ones given."""
-        print("call on set models")
+    def set_parameters(self, parameters: NDArrays, config: dict) -> nn.Module:
+        """Loads a efficientnet model and replaces it parameters with the ones given.
 
+        Args:
+            parameters (NDArrays): the distributed parameters
+            config (dict): the configuration from the server
+
+        Returns:
+            nn.Module: the constructed model
+        """
         config = self.config
         model = construct_model(config["model"], config["homogeneous_model_kwargs"])
         if parameters is not None and len(parameters) != 0:
@@ -47,8 +58,22 @@ class LiGOClient(fl.client.NumPyClient):
             model.load_state_dict(state_dict, strict=True)
         return model
 
-    def train_small_model(self, config: dict):
-        print("1call on train small models")
+    def train_small_model(self, config: dict) -> tuple[NDArrays, int, Dict[str, float]]:
+        """train the small model and it's specific ligo operator
+
+        Args:
+            config (dict): the training configuration from the server.
+
+        Returns:
+            tuple[NDArrays,int,Dict[str,float]]: the training results, containing the parameters,
+            the number of samples (for aggregation), the results dictionary.
+        """
+        log(
+            INFO,
+            "Client {} begin training the small model and ligo operator.".format(
+                self.idx
+            ),
+        )
         # define the small model kwargs
         self.config["model_kwargs"] = self.config["model_kwargs"][
             list(self.config["model_kwargs"].keys())[config["small_model_idx"]]
@@ -93,16 +118,21 @@ class LiGOClient(fl.client.NumPyClient):
         )
         model_homo.load_state_dict(model.expanded_model_state_dict, strict=False)
         parameters_prime = get_model_params(model_homo)
-        print("call on train small models")
+        # log
+        log(
+            INFO,
+            "Client {} finished training the small model and ligo operator.".format(
+                self.idx
+            ),
+        )
         return parameters_prime, num_examples_train, {"traning_loss": results}
 
     def fit(self, parameters: NDArrays, config: dict):
         """Train parameters on the locally held training set."""
-        print("received config:", config)
+        log(INFO, "Client {} received fit signal - {}".format(self.idx, config))
         self.config["small_model_training"] = config["small_model_training"]
 
         if self.config["small_model_training"]:
-            print("enable small_model_training")
             return self.train_small_model(config)
         config = deepcopy(self.config)
         # Update local model parameters
@@ -131,11 +161,17 @@ class LiGOClient(fl.client.NumPyClient):
         parameters_prime = get_model_params(model)
         # Extract the training sample number for Weighted AVG.
         num_examples_train = len(self.trainset)
-        print("call on fit")
+        log(
+            INFO,
+            "Client {} 's fit process finished, metrics:{}".format(
+                self.idx, {"traning_loss": results}
+            ),
+        )
         return parameters_prime, num_examples_train, {"traning_loss": results}
 
     def evaluate(self, parameters: NDArrays, config: dict):
         """Evaluate parameters on the locally held test set."""
+        log(INFO, "Client {} received evaluation signal - {}".format(self.idx, config))
         config = deepcopy(self.config)
         # Update local model parameters
         model = self.set_parameters(parameters, config)
@@ -148,6 +184,12 @@ class LiGOClient(fl.client.NumPyClient):
         )
         # Perform evaluation on the test set.
         loss, result = evalulate(model, testloader, self.device)
+        log(
+            INFO,
+            "Client {} 's evaluation finished, loss:{}, metrics:{}.".format(
+                self.idx, float(loss), result
+            ),
+        )
         return float(loss), len(self.testset), result
 
 
@@ -160,7 +202,7 @@ def client_dry_run(args: dict, device: str = "cpu"):
     )
     trainset = torch.utils.data.Subset(trainset, range(10))
     testset = torch.utils.data.Subset(testset, range(10))
-    client = LiGOClient(trainset, testset, device, args=args)
+    client = LiGOClient(trainset, testset, device, args=args, idx=0)
     client.fit(
         None,
         {"small_model_idx": 0, "small_model_training": True},
@@ -218,6 +260,8 @@ def main() -> None:
     with open(args.cfg_path, "r") as f:
         fedligo_cfg = yaml.load(f, Loader=yaml.FullLoader)
     set_seed(fedligo_cfg["seed"])
+
+    # Run the client according to the settings
     if args.dry:
         client_dry_run(fedligo_cfg, device)
     else:
@@ -230,8 +274,16 @@ def main() -> None:
             args.partition,
         )
 
+        # trainset = torch.utils.data.Subset(trainset, [1, 2, 3, 4, 5, 6, 7, 8, 9])
+        # testset = torch.utils.data.Subset(testset, [1, 2, 3, 4, 5, 6, 7, 8, 9])
         # Start Flower client
-        client = LiGOClient(trainset, testset, device, fedligo_cfg)
+        client = LiGOClient(
+            trainset,
+            testset,
+            device,
+            fedligo_cfg,
+            args.partition,
+        )
 
         fl.client.start_numpy_client(server_address="127.0.0.1:8080", client=client)
 

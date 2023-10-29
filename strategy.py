@@ -21,7 +21,8 @@ import torch.nn as nn
 import yaml
 from utils import gen_hetro_model_args, set_seed, get_model_params, weighted_metrics_avg
 import numpy as np
-from copy import deepcopy
+from logging import INFO
+from flwr.common import log
 
 
 class FedLiGO(fl.server.strategy.Strategy):
@@ -46,6 +47,9 @@ class FedLiGO(fl.server.strategy.Strategy):
         # We apply hetrogeneous parameters to all clients.
         # So there is no need to perform unified parameter assignment.
         ndarrays = [np.zeros(1)]
+        self.weights = [
+            fl.common.ndarrays_to_parameters(ndarrays) for _ in range(self.num_clients)
+        ]
         return fl.common.ndarrays_to_parameters(ndarrays)
 
     def configure_fit(
@@ -96,25 +100,55 @@ class FedLiGO(fl.server.strategy.Strategy):
                         ),
                     )
                 )
-
+            log(
+                INFO,
+                "Server: round {} begin. Train small model".format(server_round),
+            )
         # 2. After the small model trianing process,
         # we begin to train and aggregate the ligo operators.
         else:
-            fit_configurations = []
-            for idx, client in enumerate(clients):
-                fit_configurations.append(
-                    (
-                        client,
-                        FitIns(
-                            parameters,
-                            {
-                                "small_model_idx": self.client_configs[idx],
-                                "small_model_training": False,
-                            },
-                        ),
+            if self.config["aggregation"]:
+                fit_configurations = []
+                for idx, client in enumerate(clients):
+                    fit_configurations.append(
+                        (
+                            client,
+                            FitIns(
+                                parameters,
+                                {
+                                    "small_model_idx": self.client_configs[idx],
+                                    "small_model_training": False,
+                                },
+                            ),
+                        )
                     )
+                log(
+                    INFO,
+                    "Server: round {} begin. Enable parameter aggregation".format(
+                        server_round
+                    ),
                 )
-
+            else:
+                fit_configurations = []
+                for idx, client in enumerate(clients):
+                    fit_configurations.append(
+                        (
+                            client,
+                            FitIns(
+                                self.weights[idx],
+                                {
+                                    "small_model_idx": self.client_configs[idx],
+                                    "small_model_training": False,
+                                },
+                            ),
+                        )
+                    )
+                log(
+                    INFO,
+                    "Server: round {} begin. Disable parameter aggregation".format(
+                        server_round
+                    ),
+                )
         return fit_configurations
 
     def aggregate_fit(
@@ -152,14 +186,24 @@ class FedLiGO(fl.server.strategy.Strategy):
             parameters, the updates received in this round are discarded, and
             the global model parameters remain the same.
         """
-
+        # perform weighted parameter aggregation
         weights_results = [
             (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
             for _, fit_res in results
         ]
+        # record the weight_results for no_aggregation clients
+        self.weights = [fit_res.parameters for _, fit_res in results]
+        # get the aggregated training results
         metrics = [(fit_res.metrics, fit_res.num_examples) for _, fit_res in results]
         parameters_aggregated = ndarrays_to_parameters(aggregate(weights_results))
         metrics_aggregated = weighted_metrics_avg(metrics)
+        # log
+        log(
+            INFO,
+            "Server: round {} finished, the aggregated metrics are: {}".format(
+                server_round, metrics_aggregated
+            ),
+        )
         return parameters_aggregated, metrics_aggregated
 
     def configure_evaluate(
@@ -191,10 +235,11 @@ class FedLiGO(fl.server.strategy.Strategy):
             num_clients=client_manager.num_available(),
             min_num_clients=client_manager.num_available(),
         )
+        # set the eval instructions
         eval_ins = []
         for idx, client in enumerate(clients):
-            eval_ins.append((client, EvaluateIns(parameters, {})))
-        # Return client/config pairs
+            eval_ins.append((client, EvaluateIns(parameters if self.config["aggregation"] else self.weights[idx], {})))
+
         return eval_ins
 
     def aggregate_evaluate(
@@ -229,7 +274,7 @@ class FedLiGO(fl.server.strategy.Strategy):
 
         if not results:
             return None, {}
-
+        # perform weighted loss avg and weighted matrix avg
         loss_aggregated = weighted_loss_avg(
             [
                 (evaluate_res.num_examples, evaluate_res.loss)
@@ -239,6 +284,12 @@ class FedLiGO(fl.server.strategy.Strategy):
         metrics = [(fit_res.metrics, fit_res.num_examples) for _, fit_res in results]
 
         metrics_aggregated = weighted_metrics_avg(metrics)
+        # log
+        log(
+            INFO,
+            "Server: The evaluation metrics are: {}".format(metrics_aggregated),
+        )
+
         return loss_aggregated, metrics_aggregated
 
     def evaluate(

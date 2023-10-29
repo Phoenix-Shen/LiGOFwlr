@@ -108,13 +108,14 @@ def weighted_metrics_avg(metrics: list[tuple[Dict[str, Scalar], int]]) -> dict:
     # Initialize an empty dictionary to store the aggregated metrics
     aggregated_metrics = {}
     # Loop over the keys of the metrics dictionary
-    for key in metrics[0][0].keys():
-        # Calculate the weighted average of the metric values from all clients
-        weighted_sum = sum(
-            [metric[key] * num_examples for metric, num_examples in metrics]
-        )
-        weighted_avg = weighted_sum / num_total_evaluation_examples
-        # Store the weighted average value in the aggregated metrics dictionary
-        aggregated_metrics[key] = weighted_avg
+    if len(metrics) > 0:
+        for key in metrics[0][0].keys():
+            # Calculate the weighted average of the metric values from all clients
+            weighted_sum = sum(
+                [metric[key] * num_examples for metric, num_examples in metrics]
+            )
+            weighted_avg = weighted_sum / num_total_evaluation_examples
+            # Store the weighted average value in the aggregated metrics dictionary
+            aggregated_metrics[key] = weighted_avg
     # Return the aggregated metrics dictionary
     return aggregated_metrics

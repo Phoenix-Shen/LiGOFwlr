@@ -1,14 +1,11 @@
-from typing import Dict, Optional, Tuple
-from collections import OrderedDict
 import argparse
-from torch.utils.data import DataLoader
 import flwr as fl
-import torch
-import utils
 import warnings
 from strategy import FedLiGO
 import yaml
 from utils import set_seed
+import os
+import time
 
 warnings.filterwarnings("ignore")
 
@@ -37,7 +34,18 @@ def main():
 
     # Create strategy
     strategy = FedLiGO(fedligo_cfg)
-
+    # config log file
+    log_path = os.path.join(fedligo_cfg["log_dir"], fedligo_cfg["exp_name"])
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+    log_file = os.path.join(
+        log_path,
+        time.strftime(
+            "%Y-%m-%d_%H_%M_%S",
+        )
+        + ".log",
+    )
+    fl.common.logger.configure(identifier=fedligo_cfg["exp_name"], filename=log_file)
     # Start Flower server for four rounds of federated learning
     fl.server.start_server(
         server_address="127.0.0.1:8080",

@@ -1,16 +1,16 @@
 # config name
-exp_name: "fed_vit_various2h_noniid_noagg"
+exp_name: "fed_vit_various2h_noniid"
 log_dir: "./logs"
 
 #training settings
-seed: 1
+seed: 42
 async_training: False
 num_clients: 10
 batch_size: 64
 epochs: 200
-local_ep: 2
-device: cuda:1
-aggregation: False
+local_ep: 3
+device: cuda:0
+aggregation: True
 small_model_training: True
 small_model_training_round: 50
 # dataset settings
