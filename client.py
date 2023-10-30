@@ -21,6 +21,7 @@ from copy import deepcopy
 from logging import DEBUG, INFO
 from flwr.common import log
 from typing import Dict
+import os
 
 warnings.filterwarnings("ignore")
 
@@ -39,6 +40,7 @@ class LiGOClient(fl.client.NumPyClient):
         self.testset = testset
         self.config = args
         self.idx = idx
+        self.num_workers = 0 if os.cpu_count() < args["num_clients"] else 4
 
     def set_parameters(self, parameters: NDArrays, config: dict) -> nn.Module:
         """Loads a efficientnet model and replaces it parameters with the ones given.
@@ -95,6 +97,7 @@ class LiGOClient(fl.client.NumPyClient):
             shuffle=True,
             pin_memory=True,
             drop_last=False,
+            num_workers=self.num_workers,
         )
         config["optimizer_kwargs"]["params"] = wo_model.parameters()
         criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
@@ -149,6 +152,7 @@ class LiGOClient(fl.client.NumPyClient):
             shuffle=True,
             pin_memory=True,
             drop_last=False,
+            num_workers=self.num_workers,
         )
         # testLoader = DataLoader(self.testset, batch_size=batch_size, pin_memory=True)
         # Construct loss function and optimizer for training
@@ -180,7 +184,11 @@ class LiGOClient(fl.client.NumPyClient):
         batch_size: int = config["batch_size"]
         # Evaluate global model parameters on the local test data and return results
         testloader = DataLoader(
-            self.testset, batch_size=batch_size, pin_memory=True, drop_last=False
+            self.testset,
+            batch_size=batch_size,
+            pin_memory=True,
+            drop_last=False,
+            num_workers=self.num_workers,
         )
         # Perform evaluation on the test set.
         loss, result = evalulate(model, testloader, self.device)
