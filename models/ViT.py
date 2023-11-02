@@ -2,10 +2,7 @@ from torch import Tensor
 from collections import OrderedDict
 import torch as t
 import torch.nn as nn
-import torchvision as tv
-import torch.nn.functional as F
 from timm.models.vision_transformer import VisionTransformer, Block
-import timm
 
 
 class LiGOViT(nn.Module):

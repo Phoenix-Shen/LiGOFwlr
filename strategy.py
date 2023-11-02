@@ -16,9 +16,6 @@ import flwr as fl
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
-import torch
-import torch.nn as nn
-import yaml
 from utils import gen_hetro_model_args, set_seed, get_model_params, weighted_metrics_avg
 import numpy as np
 from logging import INFO

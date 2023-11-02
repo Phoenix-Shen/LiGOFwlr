@@ -21,7 +21,7 @@ from copy import deepcopy
 from logging import DEBUG, INFO
 from flwr.common import log
 from typing import Dict
-import os
+
 
 warnings.filterwarnings("ignore")
 
@@ -40,7 +40,7 @@ class LiGOClient(fl.client.NumPyClient):
         self.testset = testset
         self.config = args
         self.idx = idx
-        self.num_workers = 0 if os.cpu_count() < args["num_clients"] else 4
+        self.num_workers = 0
 
     def set_parameters(self, parameters: NDArrays, config: dict) -> nn.Module:
         """Loads a efficientnet model and replaces it parameters with the ones given.
@@ -132,7 +132,7 @@ class LiGOClient(fl.client.NumPyClient):
 
     def fit(self, parameters: NDArrays, config: dict):
         """Train parameters on the locally held training set."""
-        log(INFO, "Client {} received fit signal - {}".format(self.idx, config))
+        log(INFO, "Client {} received fit signal: {}".format(self.idx, config))
         self.config["small_model_training"] = config["small_model_training"]
 
         if self.config["small_model_training"]:
@@ -175,7 +175,7 @@ class LiGOClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters: NDArrays, config: dict):
         """Evaluate parameters on the locally held test set."""
-        log(INFO, "Client {} received evaluation signal - {}".format(self.idx, config))
+        log(INFO, "Client {} received evaluation signal:{}".format(self.idx, config))
         config = deepcopy(self.config)
         # Update local model parameters
         model = self.set_parameters(parameters, config)

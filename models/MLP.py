@@ -1,12 +1,10 @@
 import torch as t
 import torch.nn as nn
 from models.LiGO import LiGOLinear
-import logging
 from collections import OrderedDict
 import torch.nn.functional as F
 import os
-from torch import Tensor
-from logging import DEBUG, INFO, WARNING
+from logging import  INFO, WARNING
 from flwr.common.logger import log
 
 

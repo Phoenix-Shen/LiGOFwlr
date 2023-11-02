@@ -1,6 +1,4 @@
 import torch
-import torchvision.transforms as transforms
-from torchvision.datasets import CIFAR10
 from models.ViT import LiGOViT
 from models.MLP import LiGOMLP
 import warnings

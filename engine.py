@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
-from typing import Iterable, Optional
+from typing import Iterable
 from torch import optim
 from timm.utils import accuracy
 import numpy as np
 import sys
-from timm.utils import NativeScaler
+
+# Deprecated due to the backward process is different from the conventional deep learning.
+# from timm.utils import NativeScaler
 
 """
 Train and eval functions.

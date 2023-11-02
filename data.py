@@ -2,9 +2,7 @@ import torchvision as tv
 from torchvision import transforms
 from torch.utils.data import Dataset
 import numpy as np
-import torch as t
-from torch.utils.data import Subset, SubsetRandomSampler
-import logging
+from torch.utils.data import Subset
 import timm.data.transforms as timmtrans
 
 # apply strong augmentation to dataset
