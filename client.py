@@ -42,12 +42,11 @@ class LiGOClient(fl.client.NumPyClient):
         self.idx = idx
         self.num_workers = 0
 
-    def set_parameters(self, parameters: NDArrays, config: dict) -> nn.Module:
-        """Loads a efficientnet model and replaces it parameters with the ones given.
+    def set_parameters(self, parameters: NDArrays) -> nn.Module:
+        """Loads a deep learning model and replaces it parameters with the ones given.
 
         Args:
             parameters (NDArrays): the distributed parameters
-            config (dict): the configuration from the server
 
         Returns:
             nn.Module: the constructed model
@@ -60,11 +59,13 @@ class LiGOClient(fl.client.NumPyClient):
             model.load_state_dict(state_dict, strict=True)
         return model
 
-    def train_small_model(self, config: dict) -> tuple[NDArrays, int, Dict[str, float]]:
+    def train_small_model(
+        self, training_instruction: dict
+    ) -> tuple[NDArrays, int, Dict[str, float]]:
         """train the small model and it's specific ligo operator
 
         Args:
-            config (dict): the training configuration from the server.
+            training_instruction (dict): the training configuration from the server.
 
         Returns:
             tuple[NDArrays,int,Dict[str,float]]: the training results, containing the parameters,
@@ -76,12 +77,14 @@ class LiGOClient(fl.client.NumPyClient):
                 self.idx
             ),
         )
-        # define the small model kwargs
+        # Override the configs, IMPORTANT OPEATION
         self.config["model_kwargs"] = self.config["model_kwargs"][
-            list(self.config["model_kwargs"].keys())[config["small_model_idx"]]
+            list(self.config["model_kwargs"].keys())[
+                training_instruction["small_model_idx"]
+            ]
         ]
         config = deepcopy(self.config)
-
+        # define the small model kwargs
         wo_config = deepcopy(config)
         del wo_config["model_kwargs"]["target_hiddens"]
         del wo_config["model_kwargs"]["target_layers"]
@@ -106,7 +109,7 @@ class LiGOClient(fl.client.NumPyClient):
             wo_model, criterion, trainLoader, optimizer, epochs, self.device
         )
 
-        # Begin train the ligo operator
+        # Begin to train the ligo operator
         model = construct_model(config["model"], config["model_kwargs"])
         model.load_state_dict(wo_model.state_dict(), strict=False)
         config["optimizer_kwargs"]["params"] = model.parameters()
@@ -130,16 +133,23 @@ class LiGOClient(fl.client.NumPyClient):
         )
         return parameters_prime, num_examples_train, {"traning_loss": results}
 
-    def fit(self, parameters: NDArrays, config: dict):
+    def fit(self, parameters: NDArrays, training_instruction: dict):
         """Train parameters on the locally held training set."""
-        log(INFO, "Client {} received fit signal: {}".format(self.idx, config))
-        self.config["small_model_training"] = config["small_model_training"]
+        log(
+            INFO,
+            "Client {} received fit signal: {}".format(self.idx, training_instruction),
+        )
+        # Override the small model training argument
+        self.config["small_model_training"] = training_instruction[
+            "small_model_training"
+        ]
 
         if self.config["small_model_training"]:
-            return self.train_small_model(config)
+            return self.train_small_model(training_instruction)
+
         config = deepcopy(self.config)
         # Update local model parameters
-        model = self.set_parameters(parameters, config)
+        model = self.set_parameters(parameters)
 
         # Get hyperparameters for this round
         batch_size: int = config["batch_size"]
@@ -154,7 +164,7 @@ class LiGOClient(fl.client.NumPyClient):
             drop_last=False,
             num_workers=self.num_workers,
         )
-        # testLoader = DataLoader(self.testset, batch_size=batch_size, pin_memory=True)
+
         # Construct loss function and optimizer for training
         config["optimizer_kwargs"]["params"] = model.parameters()
         criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
@@ -178,7 +188,7 @@ class LiGOClient(fl.client.NumPyClient):
         log(INFO, "Client {} received evaluation signal:{}".format(self.idx, config))
         config = deepcopy(self.config)
         # Update local model parameters
-        model = self.set_parameters(parameters, config)
+        model = self.set_parameters(parameters)
 
         # Get config values
         batch_size: int = config["batch_size"]

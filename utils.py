@@ -9,6 +9,7 @@ from copy import deepcopy
 from flwr.common import NDArrays
 from typing import Dict, Union
 
+
 Scalar = Union[bool, bytes, float, int, str]
 warnings.filterwarnings("ignore")
 model_dict = {"LiGOMLP": LiGOMLP, "LiGOViT": LiGOViT}
@@ -98,6 +99,7 @@ def set_seed(seed: int):
     torch.manual_seed(seed)  # set the seed for Pytorch
     np.random.seed(seed)  # set the seed for numpy
     torch.backends.cudnn.benchmark = False  # disable cuDNN benchmarking
+    torch.cuda.manual_seed_all(seed)  # Set cuda manual seed
 
 
 def weighted_metrics_avg(metrics: list[tuple[Dict[str, Scalar], int]]) -> dict:
