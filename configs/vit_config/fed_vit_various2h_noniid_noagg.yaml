@@ -4,12 +4,12 @@ log_dir: "./logs"
 
 #training settings
 seed: 42
-async_training: False
+
 num_clients: 10
 batch_size: 64
 epochs: 200
 local_ep: 4
-device: cuda:0
+
 aggregation: False
 small_model_training: True
 small_model_training_round: 50

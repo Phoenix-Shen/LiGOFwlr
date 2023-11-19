@@ -3,7 +3,7 @@ set -e
 #cd "$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"/
 
 # Variables
-device="cuda:0"
+device="cuda:1"
 cfg_path="configs/vit_config/fed_vit_various2h_noniid.yaml"
 
 echo "Starting server"

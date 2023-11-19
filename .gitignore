@@ -2,3 +2,7 @@ datasets/
 .vscode/
 **/__pycache__/
 logs/
+*.pth
+tutorial/bert_tokenizer
+tutorial/english.txt
+tutorial/GPT2-tokenizer

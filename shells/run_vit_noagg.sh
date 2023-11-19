@@ -4,7 +4,7 @@ set -e
 
 
 # Variables
-device="cuda:0"
+device="cuda:1"
 cfg_path="configs/vit_config/fed_vit_various2h_noniid_noagg.yaml"
 
 echo "Starting server"

@@ -43,11 +43,8 @@ class FedLiGO(fl.server.strategy.Strategy):
         """Initialize global model parameters."""
         # We apply hetrogeneous parameters to all clients.
         # So there is no need to perform unified parameter assignment.
-        ndarrays = [np.zeros(1)]
-        self.weights = [
-            fl.common.ndarrays_to_parameters(ndarrays) for _ in range(self.num_clients)
-        ]
-        return fl.common.ndarrays_to_parameters(ndarrays)
+
+        pass
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
@@ -235,7 +232,15 @@ class FedLiGO(fl.server.strategy.Strategy):
         # set the eval instructions
         eval_ins = []
         for idx, client in enumerate(clients):
-            eval_ins.append((client, EvaluateIns(parameters if self.config["aggregation"] else self.weights[idx], {})))
+            eval_ins.append(
+                (
+                    client,
+                    EvaluateIns(
+                        parameters if self.config["aggregation"] else self.weights[idx],
+                        {},
+                    ),
+                )
+            )
 
         return eval_ins
 
@@ -311,5 +316,5 @@ class FedLiGO(fl.server.strategy.Strategy):
             dictionary containing task-specific metrics (e.g., accuracy).
         """
 
-        # Let's assume we won't perform the global model evaluation on the server side.
+        # Since we only aggregate the LiGO operator in the server side, we can not evaluate the performance of the aggregated global model.
         return None
