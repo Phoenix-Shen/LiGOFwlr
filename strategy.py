@@ -43,8 +43,11 @@ class FedLiGO(fl.server.strategy.Strategy):
         """Initialize global model parameters."""
         # We apply hetrogeneous parameters to all clients.
         # So there is no need to perform unified parameter assignment.
-
-        pass
+        ndarrays = [np.zeros(1)]
+        self.weights = [
+            fl.common.ndarrays_to_parameters(ndarrays) for _ in range(self.num_clients)
+        ]
+        return fl.common.ndarrays_to_parameters(ndarrays)
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager

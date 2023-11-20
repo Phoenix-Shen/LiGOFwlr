@@ -24,7 +24,12 @@ def main():
         required=True,
         help="Config_path of the client, should be consistent across all clients.",
     )
-
+    parser.add_argument(
+        "--port",
+        type=str,
+        default="8080",
+        help="port",
+    )
     args = parser.parse_args()
 
     # Load config file.
@@ -48,7 +53,7 @@ def main():
     fl.common.logger.configure(identifier=fedligo_cfg["exp_name"], filename=log_file)
     # Start Flower server for four rounds of federated learning
     fl.server.start_server(
-        server_address="127.0.0.1:8080",
+        server_address=f"127.0.0.1:{args.port}",
         config=fl.server.ServerConfig(num_rounds=fedligo_cfg["epochs"]),
         strategy=strategy,
     )

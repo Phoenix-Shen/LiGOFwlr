@@ -241,6 +241,7 @@ def client_dry_run(args: dict, device: str = "cpu"):
 def main() -> None:
     # Parse command line argument `partition`
     parser = argparse.ArgumentParser(description="Flower")
+
     parser.add_argument(
         "--cfg_path",
         type=str,
@@ -270,7 +271,12 @@ def main() -> None:
         required=False,
         help="Select the device to perform calculation",
     )
-
+    parser.add_argument(
+        "--port",
+        type=str,
+        default="8080",
+        help="port",
+    )
     args = parser.parse_args()
     # device
     device = torch.device(args.device)
@@ -303,7 +309,9 @@ def main() -> None:
             args.partition,
         )
 
-        fl.client.start_numpy_client(server_address="127.0.0.1:8080", client=client)
+        fl.client.start_numpy_client(
+            server_address=f"127.0.0.1:{args.port}", client=client
+        )
 
 
 if __name__ == "__main__":

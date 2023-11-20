@@ -8,11 +8,11 @@ seed: 42
 num_clients: 10
 batch_size: 64
 epochs: 200
-local_ep: 4
+local_ep: 1
 
 aggregation: True
 small_model_training: True
-small_model_training_round: 50
+small_model_training_round: 1
 # dataset settings
 dataset: CIFAR100
 data_root: ./datasets
