@@ -40,7 +40,25 @@ class LiGOClient(fl.client.NumPyClient):
         self.testset = testset
         self.config = args
         self.idx = idx
-        self.num_workers = 0
+        self.num_workers = 2
+
+        self.trainLoader = DataLoader(
+            self.trainset,
+            batch_size=self.config["batch_size"],
+            shuffle=True,
+            pin_memory=False,
+            drop_last=False,
+            num_workers=self.num_workers,
+            persistent_workers=True,
+        )
+        self.testloader = DataLoader(
+            self.testset,
+            batch_size=self.config["batch_size"],
+            pin_memory=False,
+            drop_last=False,
+            num_workers=self.num_workers,
+            persistent_workers=True,
+        )
 
     def set_parameters(self, parameters: NDArrays) -> nn.Module:
         """Loads a deep learning model and replaces it parameters with the ones given.
@@ -94,19 +112,19 @@ class LiGOClient(fl.client.NumPyClient):
         epochs: int = config["small_model_training_round"]
 
         # Construct Data Loader for training
-        trainLoader = DataLoader(
-            self.trainset,
-            batch_size=batch_size,
-            shuffle=True,
-            pin_memory=True,
-            drop_last=False,
-            num_workers=self.num_workers,
-        )
+        # trainLoader = DataLoader(
+        #     self.trainset,
+        #     batch_size=batch_size,
+        #     shuffle=True,
+        #     pin_memory=True,
+        #     drop_last=False,
+        #     num_workers=self.num_workers,
+        # )
         config["optimizer_kwargs"]["params"] = wo_model.parameters()
         criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
         optimizer = construct_optimizer(config["optimizer"], config["optimizer_kwargs"])
         results = train(
-            wo_model, criterion, trainLoader, optimizer, epochs, self.device
+            wo_model, criterion, self.trainLoader, optimizer, epochs, self.device
         )
 
         # Begin to train the ligo operator
@@ -115,7 +133,9 @@ class LiGOClient(fl.client.NumPyClient):
         config["optimizer_kwargs"]["params"] = model.parameters()
         criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
         optimizer = construct_optimizer(config["optimizer"], config["optimizer_kwargs"])
-        results = train(model, criterion, trainLoader, optimizer, epochs, self.device)
+        results = train(
+            model, criterion, self.trainLoader, optimizer, epochs, self.device
+        )
 
         num_examples_train = len(self.trainset)
 
@@ -156,21 +176,23 @@ class LiGOClient(fl.client.NumPyClient):
         epochs: int = config["local_ep"]
 
         # Construct Data Loader for training
-        trainLoader = DataLoader(
-            self.trainset,
-            batch_size=batch_size,
-            shuffle=True,
-            pin_memory=True,
-            drop_last=False,
-            num_workers=self.num_workers,
-        )
+        # trainLoader = DataLoader(
+        #     self.trainset,
+        #     batch_size=batch_size,
+        #     shuffle=True,
+        #     pin_memory=True,
+        #     drop_last=False,
+        #     num_workers=self.num_workers,
+        # )
 
         # Construct loss function and optimizer for training
         config["optimizer_kwargs"]["params"] = model.parameters()
         criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
         optimizer = construct_optimizer(config["optimizer"], config["optimizer_kwargs"])
         # Conduct training on the given datset
-        results = train(model, criterion, trainLoader, optimizer, epochs, self.device)
+        results = train(
+            model, criterion, self.trainLoader, optimizer, epochs, self.device
+        )
         # Extracy the numpy array format of the parameters for the model
         parameters_prime = get_model_params(model)
         # Extract the training sample number for Weighted AVG.
@@ -193,15 +215,15 @@ class LiGOClient(fl.client.NumPyClient):
         # Get config values
         batch_size: int = config["batch_size"]
         # Evaluate global model parameters on the local test data and return results
-        testloader = DataLoader(
-            self.testset,
-            batch_size=batch_size,
-            pin_memory=True,
-            drop_last=False,
-            num_workers=self.num_workers,
-        )
+        # testloader = DataLoader(
+        #     self.testset,
+        #     batch_size=batch_size,
+        #     pin_memory=True,
+        #     drop_last=False,
+        #     num_workers=self.num_workers,
+        # )
         # Perform evaluation on the test set.
-        loss, result = evalulate(model, testloader, self.device)
+        loss, result = evalulate(model, self.testloader, self.device)
         log(
             INFO,
             "Client {} 's evaluation finished, loss:{}, metrics:{}.".format(

@@ -25,7 +25,7 @@ def main() -> None:
     # Specify client resources if you need GPU (defaults to 1 CPU and 0 GPU)
     client_resources = None
     if DEVICE.type == "cuda":
-        client_resources = {"num_gpus": 1, "num_cpus": 10}
+        client_resources = {"num_gpus": 0.2, "num_cpus": 2}
 
     # Load configuration
     with open(args.cfg_path, "r") as f:
@@ -43,7 +43,7 @@ def main() -> None:
         )
 
         # Start Flower client
-        return LiGOClient(trainset, testset, DEVICE, None)
+        return LiGOClient(trainset, testset, DEVICE, config)
 
     fl.simulation.start_simulation(
         client_fn=client_fn,
