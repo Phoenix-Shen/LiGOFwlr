@@ -6,8 +6,9 @@ import yaml
 from utils import set_seed
 import os
 import time
+import wandb
 
-warnings.filterwarnings("ignore")
+# warnings.filterwarnings("ignore")
 
 
 def main():
@@ -50,8 +51,21 @@ def main():
         )
         + ".log",
     )
+    # init wandb
+    local_ep = fedligo_cfg["local_ep"]
+    batch_size = fedligo_cfg["batch_size"]
+    iid_degree = fedligo_cfg["iid_degree"]
+    aggregation = "AGG" if fedligo_cfg["aggregation"] else "NOAGG"
+
+    wandb.init(
+        project="FedLiGO",
+        name=f"{aggregation},iid_deg{iid_degree},local_ep{local_ep},batch_size{batch_size}",
+        # Track hyperparameters and run metadata
+        config=fedligo_cfg,
+    )
+
     fl.common.logger.configure(identifier=fedligo_cfg["exp_name"], filename=log_file)
-    # Start Flower server for four rounds of federated learning
+    # Start Flower server
     fl.server.start_server(
         server_address=f"127.0.0.1:{args.port}",
         config=fl.server.ServerConfig(num_rounds=fedligo_cfg["epochs"]),

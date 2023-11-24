@@ -6,6 +6,7 @@ from strategy import FedLiGO
 import argparse
 import yaml
 from utils import set_seed
+import wandb
 
 
 def main() -> None:
@@ -43,8 +44,21 @@ def main() -> None:
         )
 
         # Start Flower client
-        return LiGOClient(trainset, testset, DEVICE, config)
+        return LiGOClient(trainset, testset, DEVICE, config, idx=int(cid))
 
+    # init wandb
+    local_ep = config["local_ep"]
+    batch_size = config["batch_size"]
+    iid_degree = config["iid_degree"]
+    aggregation = "AGG" if config["aggregation"] else "NOAGG"
+
+    wandb.init(
+        project="FedLiGO",
+        name=f"{aggregation},iid_deg{iid_degree},local_ep{local_ep},batch_size{batch_size}",
+        # Track hyperparameters and run metadata
+        config=config,
+    )
+    # start the simulation process
     fl.simulation.start_simulation(
         client_fn=client_fn,
         num_clients=config["num_clients"],

@@ -1,5 +1,5 @@
 from typing import Callable, Union, Optional, Dict, List, Tuple
-
+import wandb
 from flwr.common import (
     EvaluateIns,
     EvaluateRes,
@@ -16,7 +16,13 @@ import flwr as fl
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
-from utils import gen_hetro_model_args, set_seed, get_model_params, weighted_metrics_avg
+from utils import (
+    gen_hetro_model_args,
+    set_seed,
+    get_model_params,
+    weighted_metrics_avg,
+    log_wandb,
+)
 import numpy as np
 from logging import INFO
 from flwr.common import log
@@ -33,6 +39,13 @@ class FedLiGO(fl.server.strategy.Strategy):
         self.client_configs = [
             gen_hetro_model_args(self.config) for _ in range(self.num_clients)
         ]
+        # log
+        log(
+            INFO,
+            "Strategy init successful, the client's model config is: {}".format(
+                self.client_configs
+            ),
+        )
 
     def __repr__(self) -> str:
         return "FedLiGO Strategy"
@@ -201,6 +214,7 @@ class FedLiGO(fl.server.strategy.Strategy):
                 server_round, metrics_aggregated
             ),
         )
+        log_wandb([fit_res for _, fit_res in results])
         return parameters_aggregated, metrics_aggregated
 
     def configure_evaluate(
@@ -294,7 +308,7 @@ class FedLiGO(fl.server.strategy.Strategy):
             INFO,
             "Server: The evaluation metrics are: {}".format(metrics_aggregated),
         )
-
+        log_wandb([fit_res for _, fit_res in results])
         return loss_aggregated, metrics_aggregated
 
     def evaluate(

@@ -6,12 +6,12 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from copy import deepcopy
-from flwr.common import NDArrays
+from flwr.common import NDArrays, EvaluateRes, FitRes
 from typing import Dict, Union
-
+import wandb
 
 Scalar = Union[bool, bytes, float, int, str]
-warnings.filterwarnings("ignore")
+# warnings.filterwarnings("ignore")
 model_dict = {"LiGOMLP": LiGOMLP, "LiGOViT": LiGOViT}
 
 
@@ -119,3 +119,26 @@ def weighted_metrics_avg(metrics: list[tuple[Dict[str, Scalar], int]]) -> dict:
             aggregated_metrics[key] = weighted_avg
     # Return the aggregated metrics dictionary
     return aggregated_metrics
+
+
+def log_wandb(results: Union[list[FitRes], list[EvaluateRes]]) -> None:
+    """Log to wandb
+
+    Args:
+        results (Union[FitRes,EvaluateRes]): the result collected by the server
+    """
+    # for different types of Result, we have different manners to handle that.
+    if isinstance(results[0], FitRes):
+        tmp_dict = {}
+        for idx, result in enumerate(results):
+            for key in result.metrics.keys():
+                tmp_dict["client#{}".format(idx) + key] = result.metrics[key]
+        wandb.log(tmp_dict)
+
+    if isinstance(results[0], EvaluateRes):
+        tmp_dict = {}
+        for idx, result in enumerate(results):
+            for key in result.metrics.keys():
+                tmp_dict["client#{}".format(idx) + key] = result.metrics[key]
+            tmp_dict["client#{}".format(idx) + "eval_loss"] = result.loss
+        wandb.log(tmp_dict)
