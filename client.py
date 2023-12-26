@@ -40,7 +40,7 @@ class LiGOClient(fl.client.NumPyClient):
         self.testset = testset
         self.config = args
         self.idx = idx
-        self.num_workers = 2
+        self.num_workers = 4
 
         self.trainLoader = DataLoader(
             self.trainset,

@@ -1,5 +1,5 @@
 # config name
-exp_name: "fed_vit_various2h_noniid_noagg"
+exp_name: "fed_vit_various2h_iid_noagg"
 log_dir: "./logs"
 
 #training settings

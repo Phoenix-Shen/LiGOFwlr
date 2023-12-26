@@ -1,5 +1,5 @@
 # config name
-exp_name: "fed_vit_various2h_noniid_noagg"
+exp_name: "fed_vit_various2h_iid"
 log_dir: "./logs"
 
 #training settings
@@ -16,7 +16,7 @@ small_model_training_round: 50
 # dataset settings
 dataset: CIFAR100
 data_root: ./datasets
-iid_degree: 0.5
+iid_degree: 1000
 
 # loss function
 criterion: "CrossEntropyLoss"

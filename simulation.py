@@ -7,6 +7,8 @@ import argparse
 import yaml
 from utils import set_seed
 import wandb
+import os
+import time
 
 
 def main() -> None:
@@ -26,7 +28,7 @@ def main() -> None:
     # Specify client resources if you need GPU (defaults to 1 CPU and 0 GPU)
     client_resources = None
     if DEVICE.type == "cuda":
-        client_resources = {"num_gpus": 0.2, "num_cpus": 2}
+        client_resources = {"num_gpus": 0.2, "num_cpus": 4}
 
     # Load configuration
     with open(args.cfg_path, "r") as f:
@@ -46,6 +48,18 @@ def main() -> None:
         # Start Flower client
         return LiGOClient(trainset, testset, DEVICE, config, idx=int(cid))
 
+    # config log file
+    log_path = os.path.join(config["log_dir"], config["exp_name"])
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+    log_file = os.path.join(
+        log_path,
+        time.strftime(
+            "%Y-%m-%d_%H_%M_%S",
+        )
+        + ".log",
+    )
+    fl.common.logger.configure(identifier=config["exp_name"], filename=log_file)
     # init wandb
     local_ep = config["local_ep"]
     batch_size = config["batch_size"]
