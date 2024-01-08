@@ -5,12 +5,12 @@ log_dir: "./logs"
 #training settings
 seed: 42
 
-num_clients: 20
+num_clients: 10
 batch_size: 64
 epochs: 200
-local_ep: 8
+local_ep: 4
 
-aggregation: True
+aggregation: False
 small_model_training: True
 small_model_training_round: 50
 # dataset settings
@@ -25,8 +25,8 @@ criterion_kwargs:
 # optimizer settings
 optimizer: AdamW
 optimizer_kwargs:
-  lr: 0.0002
-  weight_decay: 0.0
+  lr: 0.0005
+  weight_decay: 0.05
 
 # model settings
 # Vit Tiny dict(patch_size=16, embed_dim=128, depth=8, num_heads=8)

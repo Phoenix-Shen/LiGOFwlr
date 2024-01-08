@@ -46,18 +46,18 @@ class LiGOClient(fl.client.NumPyClient):
             self.trainset,
             batch_size=self.config["batch_size"],
             shuffle=True,
-            pin_memory=False,
+            pin_memory=True,
             drop_last=False,
             num_workers=self.num_workers,
-            persistent_workers=True,
+            # persistent_workers=True,
         )
         self.testloader = DataLoader(
             self.testset,
             batch_size=self.config["batch_size"],
-            pin_memory=False,
+            pin_memory=True,
             drop_last=False,
             num_workers=self.num_workers,
-            persistent_workers=True,
+            # persistent_workers=True,
         )
 
     def set_parameters(self, parameters: NDArrays) -> nn.Module:
@@ -126,7 +126,7 @@ class LiGOClient(fl.client.NumPyClient):
         results = train(
             wo_model, criterion, self.trainLoader, optimizer, epochs, self.device
         )
-
+        eval_loss, eval_mat = evalulate(wo_model, self.testloader, self.device)
         # Begin to train the ligo operator
         model = construct_model(config["model"], config["model_kwargs"])
         model.load_state_dict(wo_model.state_dict(), strict=False)
@@ -136,7 +136,15 @@ class LiGOClient(fl.client.NumPyClient):
         results = train(
             model, criterion, self.trainLoader, optimizer, epochs, self.device
         )
-
+        eval_loss, eval_mat = evalulate(model, self.testloader, self.device)
+        log(
+            INFO,
+            "Client {} finished training the small model. Small model test loss:{}, acc:{}".format(
+                self.idx,
+                eval_loss,
+                eval_mat,
+            ),
+        )
         num_examples_train = len(self.trainset)
 
         model_homo = construct_model(
@@ -147,8 +155,10 @@ class LiGOClient(fl.client.NumPyClient):
         # log
         log(
             INFO,
-            "Client {} finished training the small model and ligo operator.".format(
-                self.idx
+            "Client {} finished training the small model and ligo operator. Intermidiate model test loss:{}, acc:{}".format(
+                self.idx,
+                eval_loss,
+                eval_mat,
             ),
         )
         return parameters_prime, num_examples_train, {"traning_loss": results}
@@ -233,29 +243,26 @@ class LiGOClient(fl.client.NumPyClient):
         return float(loss), len(self.testset), result
 
 
-def client_dry_run(args: dict, device: str = "cpu"):
+def client_dry_run(args: dict, device: str = "cuda:0"):
     """Weak tests to check whether all client methods are working as expected."""
     args = deepcopy(args)
     model = construct_model(args["model"], args["homogeneous_model_kwargs"])
     trainset, testset = construct_dataset(
         args["dataset"], args["data_root"], args["num_clients"], args["iid_degree"], 0
     )
-    trainset = torch.utils.data.Subset(trainset, range(10))
-    testset = torch.utils.data.Subset(testset, range(10))
+
     client = LiGOClient(trainset, testset, device, args=args, idx=0)
-    client.fit(
+
+    param, _, _ = client.fit(
         None,
         {"small_model_idx": 0, "small_model_training": True},
     )
     client.fit(
-        get_model_params(model),
+        param,
         {"small_model_idx": 0, "small_model_training": False},
     )
-    client.fit(
-        get_model_params(model),
-        {"small_model_idx": 0, "small_model_training": False},
-    )
-    client.evaluate(get_model_params(model), {})
+
+    client.evaluate(param, {})
 
     print("Dry Run Successful")
 
@@ -289,7 +296,7 @@ def main() -> None:
     parser.add_argument(
         "--device",
         type=str,
-        default="cpu",
+        default="cuda",
         required=False,
         help="Select the device to perform calculation",
     )

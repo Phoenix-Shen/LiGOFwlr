@@ -1,5 +1,5 @@
 # config name
-exp_name: "fed_vit_various2h_iid_noagg"
+exp_name: "fed_vit_various2h_noniid"
 log_dir: "./logs"
 
 #training settings
@@ -12,11 +12,11 @@ local_ep: 8
 
 aggregation: True
 small_model_training: True
-small_model_training_round: 50
+small_model_training_round: 100
 # dataset settings
 dataset: CIFAR100
 data_root: ./datasets
-iid_degree: 100
+iid_degree: 0.5
 
 # loss function
 criterion: "CrossEntropyLoss"
@@ -25,8 +25,8 @@ criterion_kwargs:
 # optimizer settings
 optimizer: AdamW
 optimizer_kwargs:
-  lr: 0.0002
-  weight_decay: 0.0
+  lr: 0.0005
+  weight_decay: 0.05
 
 # model settings
 # Vit Tiny dict(patch_size=16, embed_dim=128, depth=8, num_heads=8)
