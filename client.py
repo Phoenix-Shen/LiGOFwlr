@@ -255,11 +255,11 @@ def client_dry_run(args: dict, device: str = "cuda:0"):
 
     param, _, _ = client.fit(
         None,
-        {"small_model_idx": 0, "small_model_training": True},
+        {"small_model_idx": 1, "small_model_training": True},
     )
     client.fit(
         param,
-        {"small_model_idx": 0, "small_model_training": False},
+        {"small_model_idx": 1, "small_model_training": False},
     )
 
     client.evaluate(param, {})

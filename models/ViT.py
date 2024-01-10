@@ -453,7 +453,7 @@ class LiGOViT(nn.Module):
         for key in self.width_expansion_operator.keys():
             nn.init.xavier_normal_(self.width_expansion_operator[key])
 
-        nn.init.constant_(self.depth_expansion_operator, 1 / self.D1)
+        nn.init.constant_(self.depth_expansion_operator, 1 / self.L1)
         # nn.init.xavier_normal_(self.depth_expansion_operator)
 
     def train(self, mode: bool = True):

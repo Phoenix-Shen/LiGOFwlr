@@ -1,5 +1,5 @@
 # config name
-exp_name: "fed_vit_various2h_iid"
+exp_name: "c20_flowers102"
 log_dir: "./logs"
 
 #training settings
