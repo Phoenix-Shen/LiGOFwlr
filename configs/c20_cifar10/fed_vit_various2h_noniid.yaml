@@ -14,7 +14,7 @@ aggregation: True
 small_model_training: True
 small_model_training_round: 100
 # dataset settings
-dataset: CIFAR100
+dataset: CIFAR10
 data_root: ./datasets
 iid_degree: 0.5
 
@@ -43,7 +43,7 @@ model_kwargs:
     target_hiddens: 320
     target_layers: 4
     target_heads: 8
-    num_classes: 100
+    num_classes: 10
     small_model_path: #pretrained_models/myvit_tiny_patch16_224/best_checkpoint.pth
   small:
     patch_size: 16
@@ -53,7 +53,7 @@ model_kwargs:
     target_hiddens: 320
     target_layers: 4
     target_heads: 8
-    num_classes: 100
+    num_classes: 10
     small_model_path: #pretrained_models/myvit_small_patch16_224/best_checkpoint.pth
   large:
     patch_size: 16
@@ -63,7 +63,7 @@ model_kwargs:
     target_hiddens: 320
     target_layers: 4
     target_heads: 8
-    num_classes: 100
+    num_classes: 10
     small_model_path: #pretrained_models/myvit_base_patch16_224/best_checkpoint.pth
 
 homogeneous_model_kwargs:
@@ -74,5 +74,5 @@ homogeneous_model_kwargs:
   target_hiddens: 384
   target_layers: 6
   target_heads: 8
-  num_classes: 100
+  num_classes: 10
   small_model_path:

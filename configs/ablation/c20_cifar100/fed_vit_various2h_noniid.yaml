@@ -1,5 +1,5 @@
 # config name
-exp_name: "c20_cifar10"
+exp_name: "ablation_c20_cifar100"
 log_dir: "./logs"
 
 #training settings
@@ -10,13 +10,13 @@ batch_size: 64
 epochs: 200
 local_ep: 8
 
-aggregation: False
-small_model_training: True
+aggregation: True
+small_model_training: False
 small_model_training_round: 100
 # dataset settings
-dataset: CIFAR10
+dataset: CIFAR100
 data_root: ./datasets
-iid_degree: 10
+iid_degree: 0.5
 
 # loss function
 criterion: "CrossEntropyLoss"
@@ -43,7 +43,7 @@ model_kwargs:
     target_hiddens: 320
     target_layers: 4
     target_heads: 8
-    num_classes: 10
+    num_classes: 100
     small_model_path: #pretrained_models/myvit_tiny_patch16_224/best_checkpoint.pth
   small:
     patch_size: 16
@@ -53,7 +53,7 @@ model_kwargs:
     target_hiddens: 320
     target_layers: 4
     target_heads: 8
-    num_classes: 10
+    num_classes: 100
     small_model_path: #pretrained_models/myvit_small_patch16_224/best_checkpoint.pth
   large:
     patch_size: 16
@@ -63,16 +63,13 @@ model_kwargs:
     target_hiddens: 320
     target_layers: 4
     target_heads: 8
-    num_classes: 10
+    num_classes: 100
     small_model_path: #pretrained_models/myvit_base_patch16_224/best_checkpoint.pth
 
 homogeneous_model_kwargs:
   patch_size: 16
-  n_hiddens: 320
-  n_layers: 4
+  n_hiddens: 384
+  n_layers: 6
   num_heads: 8
-  target_hiddens: 384
-  target_layers: 6
-  target_heads: 8
-  num_classes: 10
+  num_classes: 100
   small_model_path:

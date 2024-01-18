@@ -36,6 +36,9 @@ class FedLiGO(fl.server.strategy.Strategy):
         set_seed(self.config["seed"])
         # save arguments to member variables
         self.num_clients = self.config["num_clients"]
+        self.weights = [
+            Parameters(tensors=[], tensor_type="") for _ in range(self.num_clients)
+        ]
         self.client_configs = [
             gen_hetro_model_args(self.config) for _ in range(self.num_clients)
         ]
@@ -198,7 +201,9 @@ class FedLiGO(fl.server.strategy.Strategy):
             for _, fit_res in results
         ]
         # record the weight_results for no_aggregation clients
-        self.weights = [fit_res.parameters for _, fit_res in results]
+        for client_proxy, fit_res in results:
+            self.weights[int(client_proxy.cid)] = fit_res.parameters
+
         # get the aggregated training results
         metrics = [(fit_res.metrics, fit_res.num_examples) for _, fit_res in results]
         parameters_aggregated = ndarrays_to_parameters(aggregate(weights_results))
@@ -330,4 +335,4 @@ class FedLiGO(fl.server.strategy.Strategy):
         """
 
         # Since we only aggregate the LiGO operator in the server side, we can not evaluate the performance of the aggregated global model.
-        return None
+        pass
