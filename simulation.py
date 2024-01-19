@@ -28,7 +28,7 @@ def main() -> None:
     # Specify client resources if you need GPU (defaults to 1 CPU and 0 GPU)
     client_resources = None
     if DEVICE.type == "cuda":
-        client_resources = {"num_gpus": 0.2, "num_cpus": 3}
+        client_resources = {"num_gpus": 0.2, "num_cpus": 4}
 
     # Load configuration
     with open(args.cfg_path, "r") as f:

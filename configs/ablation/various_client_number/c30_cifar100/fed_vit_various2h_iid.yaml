@@ -1,22 +1,22 @@
 # config name
-exp_name: "c20_flowers102"
+exp_name: "c30_cifar100"
 log_dir: "./logs"
 
 #training settings
 seed: 42
 
-num_clients: 20
+num_clients: 30
 batch_size: 64
-epochs: 100
-local_ep: 40
+epochs: 200
+local_ep: 12
 
-aggregation: False
+aggregation: True
 small_model_training: True
-small_model_training_round: 200
+small_model_training_round: 100
 # dataset settings
-dataset: Flowers102
+dataset: CIFAR100
 data_root: ./datasets
-iid_degree: 0.5
+iid_degree: 100
 
 # loss function
 criterion: "CrossEntropyLoss"
@@ -43,7 +43,7 @@ model_kwargs:
     target_hiddens: 320
     target_layers: 4
     target_heads: 8
-    num_classes: 102
+    num_classes: 100
     small_model_path: #pretrained_models/myvit_tiny_patch16_224/best_checkpoint.pth
   small:
     patch_size: 16
@@ -53,7 +53,7 @@ model_kwargs:
     target_hiddens: 320
     target_layers: 4
     target_heads: 8
-    num_classes: 102
+    num_classes: 100
     small_model_path: #pretrained_models/myvit_small_patch16_224/best_checkpoint.pth
   large:
     patch_size: 16
@@ -63,7 +63,7 @@ model_kwargs:
     target_hiddens: 320
     target_layers: 4
     target_heads: 8
-    num_classes: 102
+    num_classes: 100
     small_model_path: #pretrained_models/myvit_base_patch16_224/best_checkpoint.pth
 
 homogeneous_model_kwargs:
@@ -74,5 +74,5 @@ homogeneous_model_kwargs:
   target_hiddens: 384
   target_layers: 6
   target_heads: 8
-  num_classes: 102
+  num_classes: 100
   small_model_path:

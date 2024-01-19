@@ -16,7 +16,7 @@ small_model_training_round: 100
 # dataset settings
 dataset: CIFAR10
 data_root: ./datasets
-iid_degree: 10
+iid_degree: 100
 
 # loss function
 criterion: "CrossEntropyLoss"
