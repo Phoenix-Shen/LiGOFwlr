@@ -8,7 +8,7 @@ seed: 42
 num_clients: 40
 batch_size: 64
 epochs: 200
-local_ep: 16
+local_ep: 8
 
 aggregation: False
 small_model_training: True
