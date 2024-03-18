@@ -1,0 +1,112 @@
+# Dataset
+dataset: wikiner
+data_file_path: ../fednlp_data/data_files/wikiner_data.h5
+partition_file_path: ../fednlp_data/partition_files/wikiner_partition.h5
+partition_method: niid_cluster_clients=100_alpha=0.5
+reprocess_input_data: False
+num_labels: 9
+# Model Related
+model_type: bert
+model_class: SeqTaggingModel
+model: bert-base-uncased
+do_lower_case: True
+# Training Related
+batch_size: 32
+train_batch_size: 32
+eval_batch_size: 32
+max_seq_length: 128
+n_gpu: 1
+fp16: False
+manual_seed: 3372
+# Logging related
+output_dir: ./output
+# Federated Learning Related
+aggregation: False
+federated_optimizer: FedAvg
+comm_round: 100
+is_mobile: 1
+client_num_in_total: 10
+client_num_per_round: 10
+epochs: 3
+gradient_accumulation_steps: 1
+client_optimizer: AdamW
+learning_rate: 0.0001
+weight_decay: 0.05
+clip_grad_norm: true
+evaluate_during_training: False
+evaluate_during_training_steps: 100
+frequency_of_the_test: 1
+max_grad_norm: 1
+use_multiprocessing: False
+
+small_model_training: True
+small_model_training_round: 50
+# Model kwargs
+model_kwargs:
+  nano:
+    small_model: 
+      hidden_size: 256
+      num_hidden_layers: 2
+      intermediate_size: 256
+      num_attention_heads: 8
+      num_labels: 9
+      #pretrained_path: pretrained_models/bert_uncased_L-4_H-256_A-4
+    large_model:
+      hidden_size: 320
+      num_hidden_layers: 4
+      intermediate_size: 320
+      num_attention_heads: 8
+      num_labels: 9
+  mini:
+    small_model: 
+      hidden_size: 256
+      num_hidden_layers: 3
+      intermediate_size: 256
+      num_attention_heads: 8
+      num_labels: 9
+      #pretrained_path: pretrained_models/bert_uncased_L-4_H-256_A-4
+    large_model:
+      hidden_size: 320
+      num_hidden_layers: 4
+      intermediate_size: 320
+      num_attention_heads: 8
+      num_labels: 9
+  small:
+    small_model: 
+      hidden_size: 256
+      num_hidden_layers: 4
+      intermediate_size: 256
+      num_attention_heads: 8
+      num_labels: 9
+      #pretrained_path: pretrained_models/bert_uncased_L-4_H-256_A-4
+    large_model:
+      hidden_size: 320
+      num_hidden_layers: 4
+      intermediate_size: 320
+      num_attention_heads: 8
+      num_labels: 9
+  # medium:
+  #   small_model:
+  #     hidden_size: 512
+  #     num_hidden_layers: 8
+  #     intermediate_size: 2048
+  #     num_attention_heads: 8
+  #   large_model:
+  #     hidden_size: 512
+  #     num_hidden_layers: 8
+  #     intermediate_size: 2048
+  #     num_attention_heads: 8
+
+homogeneous_model_kwargs:
+  small_model:
+    hidden_size: 320
+    num_hidden_layers: 4
+    intermediate_size: 320
+    num_attention_heads: 8
+    num_labels: 9
+  large_model:
+    hidden_size: 384
+    num_hidden_layers: 6
+    intermediate_size: 384
+    num_attention_heads: 8
+    num_labels: 9

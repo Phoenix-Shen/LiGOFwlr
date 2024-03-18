@@ -1,0 +1,8 @@
+old/
+**/__pycache__/
+tutorial/
+cache_dir/
+.vscode/
+output/
+pretrained_models/
+wandb/
