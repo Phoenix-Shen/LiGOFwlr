@@ -1,0 +1,82 @@
+# befor running this experiments, we need to modify
+# 1. data.py 152 client_datasets[idx] to client_datasets[idx % num_users]
+# 2. simulaton.py 43 config["num_clients"] to config["num_clients"]/2
+
+# config name
+exp_name: "double_data_amount_agg"
+log_dir: "./logs"
+
+#training settings
+seed: 42
+
+num_clients: 50
+batch_size: 64
+epochs: 200
+local_ep: 8
+
+aggregation: True 
+small_model_training: True
+small_model_training_round: 100
+# dataset settings
+dataset: CIFAR100
+data_root: ./datasets
+iid_degree: 100
+
+# loss function
+criterion: "CrossEntropyLoss"
+criterion_kwargs:
+
+# optimizer settings
+optimizer: AdamW
+optimizer_kwargs:
+  lr: 0.0005
+  weight_decay: 0.05
+
+# model settings
+# Vit Tiny dict(patch_size=16, embed_dim=128, depth=8, num_heads=8)
+# Vit Smal dict(patch_size=16, embed_dim=192, depth=10, num_heads=8)
+# Vit Base dict(patch_size=16, embed_dim=256, depth=12, num_heads=8)
+model: "LiGOViT"
+various_model: True
+model_kwargs:
+  tiny:
+    patch_size: 16
+    n_hiddens: 256
+    n_layers: 2
+    num_heads: 8
+    target_hiddens: 320
+    target_layers: 4
+    target_heads: 8
+    num_classes: 100
+    small_model_path: #pretrained_models/myvit_tiny_patch16_224/best_checkpoint.pth
+  small:
+    patch_size: 16
+    n_hiddens: 256
+    n_layers: 3
+    num_heads: 8
+    target_hiddens: 320
+    target_layers: 4
+    target_heads: 8
+    num_classes: 100
+    small_model_path: #pretrained_models/myvit_small_patch16_224/best_checkpoint.pth
+  large:
+    patch_size: 16
+    n_hiddens: 256
+    n_layers: 4
+    num_heads: 8
+    target_hiddens: 320
+    target_layers: 4
+    target_heads: 8
+    num_classes: 100
+    small_model_path: #pretrained_models/myvit_base_patch16_224/best_checkpoint.pth
+
+homogeneous_model_kwargs:
+  patch_size: 16
+  n_hiddens: 320
+  n_layers: 4
+  num_heads: 8
+  target_hiddens: 384
+  target_layers: 6
+  target_heads: 8
+  num_classes: 100
+  small_model_path:
