@@ -45,7 +45,7 @@ def train(
             samples = samples.to(device, non_blocking=True)
             targets = targets.to(device, non_blocking=True)
             # use auto mixed precision to accerate the training procedure.
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast(device_type="cuda"):
                 outputs = model.forward(samples)
                 loss = criterion.forward(outputs, targets)
             # If the loss value is infinite, stop
@@ -95,7 +95,7 @@ def evalulate(model: nn.Module, data_loader: Iterable, device: torch.device):
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
         # comput the outputs
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast(device_type="cuda"):
             output = model(images)
             loss = criterion(output, target)
         # calculate the top1 and top5 accuracy

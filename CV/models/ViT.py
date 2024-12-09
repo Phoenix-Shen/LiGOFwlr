@@ -3,6 +3,42 @@ from collections import OrderedDict
 import torch as t
 import torch.nn as nn
 from timm.models.vision_transformer import VisionTransformer, Block
+import torch.nn.functional as F
+
+
+def normalized_uniform_init(w: Tensor, init_scheme: str):
+    init_weight = t.rand_like(w)
+    if "softmax" in init_scheme:
+        init_weight = F.softmax(init_weight, -1)  # softmax normalize
+    else:
+        init_weight = init_weight / t.sum(init_weight, -1, keepdim=True)  # normalize
+    w.data.copy_(init_weight)
+
+
+def stackbert_init(w: Tensor, layer_index: int, init_scheme: str, init_noise=0.03):
+    init_weight = t.zeros_like(w)
+    if "noisy" in init_scheme:
+        init_weight.uniform_(0.0, init_noise)
+    init_weight[:, layer_index % init_weight.shape[-1]] = 1.0
+    init_weight = init_weight / t.sum(init_weight, dim=-1, keepdim=True)  # normalize
+    w.data.copy_(init_weight)
+
+
+def interlace_init(w: t.Tensor, layer_index: int, init_scheme: str, init_noise=0.03):
+    """Interlace_init for depth expansion operator
+
+    Args:
+        w (t.Tensor)
+        layer_index (int)
+        init_scheme (str)
+        init_noise (float, optional): Defaults to 0.03.
+    """
+    init_weight = t.zeros_like(w)
+    if "noisy" in init_scheme:
+        init_weight.uniform_(0.0, init_noise)
+    init_weight[:, layer_index // 2] = 1.0
+    init_weight = init_weight / t.sum(init_weight, dim=-1, keepdim=True)  # normalize
+    w.data.copy_(init_weight)
 
 
 class LiGOViT(nn.Module):
@@ -17,9 +53,15 @@ class LiGOViT(nn.Module):
         target_heads=None,
         small_model_path=None,
         num_classes=100,
+        width_init_scheme="xavier_normal",
+        depth_init_scheme="constant",
+        init_noise=0.03,
     ) -> None:
         super().__init__()
         # has ligo operator
+        self.width_init_scheme = width_init_scheme
+        self.depth_init_scheme = depth_init_scheme
+        self.init_noise = init_noise
         self.enable_ligo = (
             target_hiddens is not None
             and target_layers is not None
@@ -78,9 +120,9 @@ class LiGOViT(nn.Module):
                 )
 
                 # Feed-Forward NN
-                self.width_expansion_operator[
-                    "Weight_B_fc1_{}".format(l)
-                ] = nn.Parameter(t.empty(size=(self.D2, self.D1)))
+                self.width_expansion_operator["Weight_B_fc1_{}".format(l)] = (
+                    nn.Parameter(t.empty(size=(self.D2, self.D1)))
+                )
 
             # Depth Expansion Operator w_ij
             # 8 denotes q k v o ln1 fc1 fc2 ln2
@@ -357,10 +399,9 @@ class LiGOViT(nn.Module):
             self.full_dict["blocks." + name] = state_dict
 
         # classification head
-        self.full_dict[
-            "patch_embed.proj.weight"
-        ] = self.embedding_expansion @ self.small_model.patch_embed.proj.weight.reshape(
-            self.D1, -1
+        self.full_dict["patch_embed.proj.weight"] = (
+            self.embedding_expansion
+            @ self.small_model.patch_embed.proj.weight.reshape(self.D1, -1)
         )
         self.full_dict["patch_embed.proj.weight"] = self.full_dict[
             "patch_embed.proj.weight"
@@ -448,13 +489,52 @@ class LiGOViT(nn.Module):
         self.large_model._save_to_state_dict(model_path)
 
     def _reset_parameters(self):
+        width_init_scheme = self.width_init_scheme
+        depth_init_scheme = self.depth_init_scheme
+        init_noise = self.init_noise
         nn.init.xavier_normal_(self.embedding_expansion)
 
         for key in self.width_expansion_operator.keys():
-            nn.init.xavier_normal_(self.width_expansion_operator[key])
-
-        nn.init.constant_(self.depth_expansion_operator, 1 / self.L1)
-        # nn.init.xavier_normal_(self.depth_expansion_operator)
+            if width_init_scheme in ["rand", "rand_softmax"]:
+                normalized_uniform_init(
+                    self.width_expansion_operator[key], width_init_scheme
+                )
+            elif width_init_scheme in ["sel", "sel_noisy"]:
+                sel = t.randint(0, self.D1, (self.D2,))
+                init_weight = t.zeros_like(
+                    self.width_expansion_operator[key], dtype=t.float32
+                )
+                if "noisy" in width_init_scheme:
+                    init_weight.uniform_(0.0, init_noise)
+                init_weight[t.arange(self.D2), sel] = 1.0
+                self.width_expansion_operator[key].data.copy_(init_weight)
+            elif width_init_scheme in ["xavier_normal"]:
+                nn.init.xavier_normal_(self.width_expansion_operator[key])
+            else:
+                raise ValueError("unsupported depth init scheme")
+        for i in range(self.L2):
+            if depth_init_scheme in ["rand", "rand_softmax"]:
+                normalized_uniform_init(
+                    self.depth_expansion_operator[:, i, :], depth_init_scheme
+                )
+            elif depth_init_scheme in ["stackbert", "stackbert_noisy"]:
+                stackbert_init(
+                    self.depth_expansion_operator[:, i, :],
+                    i,
+                    depth_init_scheme,
+                    init_noise,
+                )
+            elif depth_init_scheme in ["interlace", "interlace_noisy"]:
+                interlace_init(
+                    self.depth_expansion_operator[:, i, :],
+                    i,
+                    depth_init_scheme,
+                    init_noise,
+                )
+            elif depth_init_scheme in ["constant"]:
+                nn.init.constant_(self.depth_expansion_operator, 1 / self.L1)
+            else:
+                raise ValueError("unsupported depth init scheme")
 
     def train(self, mode: bool = True):
         if self.enable_ligo:

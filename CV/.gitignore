@@ -7,3 +7,4 @@ tutorial/bert_tokenizer
 tutorial/english.txt
 tutorial/GPT2-tokenizer
 wandb/
+model_ckpt/

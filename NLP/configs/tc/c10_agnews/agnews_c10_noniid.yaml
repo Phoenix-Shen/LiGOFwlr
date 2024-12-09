@@ -1,7 +1,7 @@
 # Dataset
 dataset: agnews
-data_file_path: ../fednlp_data/data_files/agnews_data.h5
-partition_file_path: ../fednlp_data/partition_files/agnews_partition.h5
+data_file_path: ../../fednlp_data/data_files/agnews_data.h5
+partition_file_path: ../../fednlp_data/partition_files/agnews_partition.h5
 partition_method: niid_label_clients=10_alpha=0.5
 reprocess_input_data: False
 num_labels: 4

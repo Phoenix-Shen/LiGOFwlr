@@ -26,6 +26,24 @@ from utils import (
 import numpy as np
 from logging import INFO
 from flwr.common import log
+from datetime import datetime
+
+
+def save_ndarrays_to_npz(base_filename: str, arrays: NDArrays):
+    # Format the current timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Create the full filename with timestamp
+    filename = f"{base_filename}{timestamp}.npz"
+    # Create a dictionary to store arrays with unique names
+    array_dict = {f"array_{i}": arr for i, arr in enumerate(arrays)}
+    # Save to .npz file
+    np.savez(filename, **array_dict)
+    print(f"Saved arrays to {filename}")
+
+
+def load_ndarrays_from_npz(file_path: str) -> NDArrays:
+    with np.load(file_path) as data:
+        return [data[key] for key in data.files]
 
 
 class FedLiGO(fl.server.strategy.Strategy):
@@ -206,7 +224,8 @@ class FedLiGO(fl.server.strategy.Strategy):
 
         # get the aggregated training results
         metrics = [(fit_res.metrics, fit_res.num_examples) for _, fit_res in results]
-        parameters_aggregated = ndarrays_to_parameters(aggregate(weights_results))
+        aggregated_params = aggregate(weights_results)
+        parameters_aggregated = ndarrays_to_parameters(aggregated_params)
         metrics_aggregated = weighted_metrics_avg(metrics)
         # log
         log(
@@ -216,6 +235,10 @@ class FedLiGO(fl.server.strategy.Strategy):
             ),
         )
         log_wandb([fit_res for _, fit_res in results])
+
+        # save parameters
+        if server_round == self.config["epochs"]:
+            save_ndarrays_to_npz("global_model_", aggregated_params)
         return parameters_aggregated, metrics_aggregated
 
     def configure_evaluate(

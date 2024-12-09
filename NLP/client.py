@@ -53,7 +53,7 @@ class LiGOClient(fl.client.NumPyClient):
             self.args.model_class,
             self.args.homogeneous_model_kwargs,
         )
-        if len(parameters)>0:
+        if len(parameters) > 0:
             params_dict = zip(model.state_dict().keys(), parameters)
             state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
             model.load_state_dict(state_dict, strict=True)
@@ -138,6 +138,7 @@ class LiGOClient(fl.client.NumPyClient):
                 self.idx
             ),
         )
+        torch.save(model.expanded_model_state_dict, "client_{}.pth".format(self.idx))
         return parameters_prime, num_examples_train, {"traning_loss": results}
 
     def fit(self, parameters: NDArrays, training_instruction: dict):
@@ -182,7 +183,9 @@ class LiGOClient(fl.client.NumPyClient):
             self.args.model_type,
             self.args.model_class,
         )
-        eval_result:dict = trainer.test(model, self.test_loader, self.device, self.args)
+        eval_result: dict = trainer.test(
+            model, self.test_loader, self.device, self.args
+        )
         test_loss = eval_result.pop("test_loss")
         return test_loss, len(self.test_loader.dataset), eval_result
 

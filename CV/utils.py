@@ -1,6 +1,5 @@
 import torch
 from models.ViT import LiGOViT
-from models.MLP import LiGOMLP
 import warnings
 import torch.nn as nn
 import torch.optim as optim
@@ -12,7 +11,7 @@ import wandb
 
 Scalar = Union[bool, bytes, float, int, str]
 # warnings.filterwarnings("ignore")
-model_dict = {"LiGOMLP": LiGOMLP, "LiGOViT": LiGOViT}
+model_dict = {"LiGOViT": LiGOViT}
 
 
 def construct_model(model_name: str, kwargs: dict) -> nn.Module:
@@ -26,7 +25,9 @@ def construct_model(model_name: str, kwargs: dict) -> nn.Module:
     return model_dict[model_name](**kwargs)
 
 
-def construct_optimizer(optimizer_name: str, kwargs: dict) -> optim.Optimizer:
+def construct_optimizer(
+    model: nn.Module, optimizer_name: str, kwargs: dict
+) -> optim.Optimizer:
     """construct optimizer
 
     Args:
@@ -36,8 +37,28 @@ def construct_optimizer(optimizer_name: str, kwargs: dict) -> optim.Optimizer:
     Returns:
         torch.optim.Optimizer: the optimizer
     """
+    kwargs = deepcopy(kwargs)
+    lr = kwargs.pop("lr")
+    param_groups = [
+        {
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if "depth_expansion_operator" not in n
+            ],
+            "lr": lr,
+        },
+        {
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if "depth_expansion_operator" in n
+            ],
+            "lr": lr,
+        },  # 10 times the original lr
+    ]
     kwargs = {} if kwargs is None else kwargs
-    optimizer = getattr(optim, optimizer_name)(**kwargs)
+    optimizer = getattr(optim, optimizer_name)(param_groups, **kwargs)
     return optimizer
 
 
@@ -98,7 +119,6 @@ def set_seed(seed: int):
     """
     torch.manual_seed(seed)  # set the seed for Pytorch
     np.random.seed(seed)  # set the seed for numpy
-    torch.backends.cudnn.benchmark = False  # disable cuDNN benchmarking
     torch.cuda.manual_seed_all(seed)  # Set cuda manual seed
 
 

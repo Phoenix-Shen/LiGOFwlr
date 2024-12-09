@@ -120,23 +120,16 @@ class LiGOClient(fl.client.NumPyClient):
         #     drop_last=False,
         #     num_workers=self.num_workers,
         # )
-        config["optimizer_kwargs"]["params"] = wo_model.parameters()
+
         criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
-        optimizer = construct_optimizer(config["optimizer"], config["optimizer_kwargs"])
+        optimizer = construct_optimizer(
+            wo_model, config["optimizer"], config["optimizer_kwargs"]
+        )
         results = train(
             wo_model, criterion, self.trainLoader, optimizer, epochs, self.device
         )
         eval_loss, eval_mat = evalulate(wo_model, self.testloader, self.device)
-        # Begin to train the ligo operator
-        model = construct_model(config["model"], config["model_kwargs"])
-        model.load_state_dict(wo_model.state_dict(), strict=False)
-        config["optimizer_kwargs"]["params"] = model.parameters()
-        criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
-        optimizer = construct_optimizer(config["optimizer"], config["optimizer_kwargs"])
-        results = train(
-            model, criterion, self.trainLoader, optimizer, epochs, self.device
-        )
-        eval_loss, eval_mat = evalulate(model, self.testloader, self.device)
+        print(results)
         log(
             INFO,
             "Client {} finished training the small model. Small model test loss:{}, acc:{}".format(
@@ -145,6 +138,19 @@ class LiGOClient(fl.client.NumPyClient):
                 eval_mat,
             ),
         )
+        # Begin to train the ligo operator
+        model = construct_model(config["model"], config["model_kwargs"])
+        model.load_state_dict(wo_model.state_dict(), strict=False)
+        # model.small_model.train()
+        criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
+        optimizer = construct_optimizer(
+            model, config["optimizer"], config["optimizer_kwargs"]
+        )
+        results = train(
+            model, criterion, self.trainLoader, optimizer, epochs, self.device
+        )
+        eval_loss, eval_mat = evalulate(model, self.testloader, self.device)
+
         num_examples_train = len(self.trainset)
 
         model_homo = construct_model(
@@ -196,9 +202,11 @@ class LiGOClient(fl.client.NumPyClient):
         # )
 
         # Construct loss function and optimizer for training
-        config["optimizer_kwargs"]["params"] = model.parameters()
+
         criterion = construct_loss_func(config["criterion"], config["criterion_kwargs"])
-        optimizer = construct_optimizer(config["optimizer"], config["optimizer_kwargs"])
+        optimizer = construct_optimizer(
+            model, config["optimizer"], config["optimizer_kwargs"]
+        )
         # Conduct training on the given datset
         results = train(
             model, criterion, self.trainLoader, optimizer, epochs, self.device
